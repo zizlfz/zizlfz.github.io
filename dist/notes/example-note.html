@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Example Note</title>
+        <meta name="description" content=" Welcome to Your NotesThis is an example note to demonstrate how yournotes will look. FeaturesHere's what you can do with your notes:- Bold text" />
+        <link rel="stylesheet" href="../assets/style.css" />
+    </head>
+    <body>
+        <header class="masthead">
+            <div class="container">
+                <h3 class="masthead-title">
+                    <a href="../">zizlfz</a>
+                    <small>Notes</small>
+                </h3>
+                <div class="toc-wrapper">
+                    <button class="toc-trigger" aria-label="Table of contents">
+                        <svg class="progress-circle" viewBox="0 0 24 24">
+                            <circle class="progress-bg" cx="12" cy="12" r="10" />
+                            <circle class="progress-bar" cx="12" cy="12" r="10" />
+                        </svg>
+                        <span class="toc-current">Contents</span>
+                        <svg class="toc-arrow" width="12" height="12" viewBox="0 0 12 12">
+                            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    <nav class="toc-dropdown">
+                        <ul class="toc-list"></ul>
+                    </nav>
+                </div>
+            </div>
+        </header>
+        <div class="container content">
+            <main>
+                <article class="post">
+                    <div class="post-meta">
+                        Last updated at
+                        <time datetime="2026-03-26" class="post-date">March 26, 2026</time>
+                    </div>
+                    <div class="tags"><span class="tag">example</span><span class="tag">getting-started</span></div> <h1>Welcome to Your Notes</h1>
+<p>This is an example note to demonstrate how yournotes will look.</p>
+<h2>Features</h2>
+<p>Here&#39;s what you can do with your notes:</p>
+<ul>
+<li><strong>Bold text</strong> appears inaccent red</li>
+<li><em>Italic text</em> appears inaccent blue</li>
+<li><code>Code</code> has a subtle background</li>
+<li><a href="https://example.com">Links</a> are warm and inviting</li>
+</ul>
+<h2>Code Blocks</h2>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#D73A49">function</span><span style="color:#6F42C1"> greet</span><span style="color:#24292E">(</span><span style="color:#E36209">name</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">  return</span><span style="color:#032F62"> `Hello, ${</span><span style="color:#24292E">name</span><span style="color:#032F62">}!`</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">console.</span><span style="color:#6F42C1">log</span><span style="color:#24292E">(</span><span style="color:#6F42C1">greet</span><span style="color:#24292E">(</span><span style="color:#032F62">'World'</span><span style="color:#24292E">));</span></span></code></pre><h2>Blockquotes</h2>
+<blockquote>
+<p>This is a blockquote. It&#39;s styled with a warm yellow accent border and subtle background.</p>
+</blockquote>
+<h2>Lists</h2>
+<ol>
+<li>First item</li>
+<li>Second item</li>
+<li>Third item</li>
+</ol>
+<ul>
+<li>Bullet point one</li>
+<li>Bullet point two</li>
+<li>Bullet point three</li>
+</ul>
+<hr>
+<p>That&#39;s the basics! Start writing your own notes in the <code>notes/</code> directory.</p>
+
+                </article>
+            </main>
+
+            <footer class="footer">
+                <small>
+                    &copy; <time>2026</time>. All rights reserved.
+                </small>
+            </footer>
+        </div>
+        <div id="lightbox" class="lightbox">
+            <button class="lightbox-close" aria-label="Close">&times;</button>
+            <div class="lightbox-content"></div>
+        </div>
+        <script>
+            // Lightbox
+            const lightbox = document.getElementById("lightbox");
+            const lightboxContent = lightbox.querySelector(".lightbox-content");
+            const lightboxClose = lightbox.querySelector(".lightbox-close");
+
+            function openLightbox(svg) {
+                lightboxContent.innerHTML = svg.outerHTML;
+                lightbox.classList.add("open");
+                document.body.style.overflow = "hidden";
+            }
+
+            function closeLightbox() {
+                lightbox.classList.remove("open");
+                document.body.style.overflow = "";
+            }
+
+            document.querySelectorAll(".mermaid").forEach((pre) => {
+                pre.style.cursor = "pointer";
+                pre.style.transition = "opacity 0.2s";
+                pre.addEventListener("mouseenter", () => (pre.style.opacity = "0.8"));
+                pre.addEventListener("mouseleave", () => (pre.style.opacity = "1"));
+                pre.addEventListener("click", function () {
+                    const svg = this.querySelector("svg");
+                    if (svg) openLightbox(svg);
+                });
+            });
+
+            lightbox.addEventListener("click", function (e) {
+                if (e.target === lightbox) closeLightbox();
+            });
+            lightboxClose.addEventListener("click", closeLightbox);
+            document.addEventListener("keydown", function (e) {
+                if (e.key === "Escape") closeLightbox();
+            });
+
+            // Table of Contents
+            const tocWrapper = document.querySelector(".toc-wrapper");
+            const tocTrigger = document.querySelector(".toc-trigger");
+            const tocDropdown = document.querySelector(".toc-dropdown");
+            const tocList = document.querySelector(".toc-list");
+            const tocCurrent = document.querySelector(".toc-current");
+            const progressBar = document.querySelector(".progress-bar");
+            const article = document.querySelector("article.post");
+            const headings = article ? article.querySelectorAll("h1, h2, h3") : [];
+
+            // Build TOC
+            if (headings.length > 0 && tocList) {
+                headings.forEach((h, i) => {
+                    const id = `heading-${i}`;
+                    h.id = id;
+                    const li = document.createElement("li");
+                    li.className = `toc-item toc-${h.tagName.toLowerCase()}`;
+                    const a = document.createElement("a");
+                    a.href = `#${id}`;
+                    a.textContent = h.textContent;
+                    a.addEventListener("click", (e) => {
+                        e.preventDefault();
+                        h.scrollIntoView({ behavior: "smooth" });
+                        tocDropdown.classList.remove("open");
+                    });
+                    li.appendChild(a);
+                    tocList.appendChild(li);
+                });
+            }
+
+            // Toggle dropdown
+            if (tocTrigger && tocDropdown) {
+                tocTrigger.addEventListener("click", () => {
+                    tocDropdown.classList.toggle("open");
+                });
+                document.addEventListener("click", (e) => {
+                    if (!tocWrapper.contains(e.target)) {
+                        tocDropdown.classList.remove("open");
+                    }
+                });
+            }
+
+            // Progress and current heading
+            const circumference = 2 * Math.PI * 10;
+            progressBar.style.strokeDasharray = circumference;
+
+            function updateProgress() {
+                const scrollTop = window.scrollY;
+                const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                const progress = docHeight > 0 ? scrollTop / docHeight : 0;
+                const offset = circumference - progress * circumference;
+                progressBar.style.strokeDashoffset = offset;
+
+                // Find current heading
+                let current = headings[0];
+                for (const h of headings) {
+                    const rect = h.getBoundingClientRect();
+                    if (rect.top <= 100) {
+                        current = h;
+                    }
+                }
+                if (current && tocCurrent) {
+                    tocCurrent.textContent = current.textContent;
+                    tocList.querySelectorAll("a").forEach((a) => {
+                        a.parentElement.classList.toggle("active", a.getAttribute("href") === `#${current.id}`);
+                    });
+                }
+            }
+
+            window.addEventListener("scroll", updateProgress);
+            updateProgress();
+        </script>
+    </body>
+</html>

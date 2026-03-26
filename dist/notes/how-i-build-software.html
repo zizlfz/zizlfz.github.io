@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>How I Build Software</title>
+        <meta name="description" content=" How I Build SoftwareI believe that "tactical programming", where a software engineer jumps straight into code without fully understanding the problemis, is" />
+        <link rel="stylesheet" href="../assets/style.css" />
+    </head>
+    <body>
+        <header class="masthead">
+            <div class="container">
+                <h3 class="masthead-title">
+                    <a href="../">zizlfz</a>
+                    <small>Notes</small>
+                </h3>
+                <div class="toc-wrapper">
+                    <button class="toc-trigger" aria-label="Table of contents">
+                        <svg class="progress-circle" viewBox="0 0 24 24">
+                            <circle class="progress-bg" cx="12" cy="12" r="10" />
+                            <circle class="progress-bar" cx="12" cy="12" r="10" />
+                        </svg>
+                        <span class="toc-current">Contents</span>
+                        <svg class="toc-arrow" width="12" height="12" viewBox="0 0 12 12">
+                            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    <nav class="toc-dropdown">
+                        <ul class="toc-list"></ul>
+                    </nav>
+                </div>
+            </div>
+        </header>
+        <div class="container content">
+            <main>
+                <article class="post">
+                    <div class="post-meta">
+                        Last updated at
+                        <time datetime="2026-03-26" class="post-date">March 26, 2026</time>
+                    </div>
+                     <h1>How I Build Software</h1>
+<p>I believe that &quot;tactical programming&quot;, where a software engineer jumps straight into code without fully understanding the problemis, is the root cause of most software failures.</p>
+<p>My approach was fundamentally shaped by the principles in <strong><a href="https://solidbook.io/">SolidBook</a></strong>, which taught me to <strong>elucidate essential complexity and eliminate accidental complexity</strong>. </p>
+<p>I follow a rigorous four-phase loop to ensure I am solving the right problem: 
+<strong>Discover → Plan → Understand → Build</strong>.</p>
+<h2>Context of Application</h2>
+<p>I apply this mindset in two distinct ways depending on my role:</p>
+<ul>
+<li><strong>As a Solo Engineer:</strong> When handling the full stack, I execute this entire lifecycle—from domain discovery to deployment. This ensures that the product isn&#39;t just coded, but that the architecture accurately models the business problem.</li>
+<li><strong>As a Frontend Engineer:</strong> In a team setting, I focus deeply on the <strong>Understand</strong> and <strong>Build</strong> phases. I strive to build a mental model of the project by learning the domain and features, even if the backend logic isn&#39;t my responsibility. This allows me to implement frontend code that doesn&#39;t just &quot;match the design,&quot; but reliably handles state, failure cases, and business rules in sync with the system as a whole.</li>
+</ul>
+<hr>
+<h2>1. Discover: Learn the Domain</h2>
+<p><em>Before writing a single line of code, I learn the language of the business.</em></p>
+<p>If developers invent their own terminology, they build the wrong thing. I use <strong>Domain-Driven Design (DDD)</strong> techniques to build a shared mental model.</p>
+<ul>
+<li><strong>Event Storming:</strong> I map out the business chronologically using sticky notes (Events, Commands, Aggregates) to identify the core subdomains.</li>
+<li><strong>Ubiquitous Language:</strong> I build a glossary to ensure that the codebase speaks the same language as the domain experts (e.g., using &quot;Offer&quot; instead of generic &quot;Transaction&quot;).</li>
+<li><strong>Deliverable:</strong> A domain glossary and context map.</li>
+</ul>
+<h2>2. Plan: Slice the Work</h2>
+<p><em>A large feature is just a container for smaller problems.</em></p>
+<p>I break work down into vertical slices of value, not horizontal technical layers.</p>
+<ul>
+<li><strong>INVEST Stories:</strong> Every story must be Independent, Negotiable, Valuable, Estimable, Small, and Testable.</li>
+<li><strong>Release Planning:</strong> I prioritize based on business value and velocity, ensuring we build the riskiest or most valuable items first.</li>
+</ul>
+<h2>3. Understand: The &quot;Secret Sauce&quot;</h2>
+<p><em>This is the most critical phase. I never start coding until the story is fully understood.</em></p>
+<p>I create three specific design artifacts <em>before</em> implementation. These are written in pseudocode so they are <strong>checkable by domain experts</strong>—if a non-technical stakeholder can&#39;t read it, it&#39;s too complex.</p>
+<p><strong>1. Feature Summary</strong>
+I define the contract of the feature, explicitly listing every success and failure state.</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#22863A">Feature</span><span style="color:#24292E">: </span><span style="color:#032F62">"Make Offer"</span></span>
+<span class="line"><span style="color:#22863A">  Namespace</span><span style="color:#24292E">: </span><span style="color:#032F62">Trading</span></span>
+<span class="line"><span style="color:#22863A">  Input</span><span style="color:#24292E">: </span><span style="color:#032F62">Unvalidated Offer</span></span>
+<span class="line"><span style="color:#22863A">  Output (Success)</span><span style="color:#24292E">: </span><span style="color:#032F62">OfferPlaced event</span></span>
+<span class="line"><span style="color:#22863A">  Output (Failure)</span><span style="color:#24292E">: </span><span style="color:#032F62">InsufficientCredits, NoValidPaymentMethod, VinylNotAvailable</span></span>
+<span class="line"><span style="color:#22863A">  Side-effects</span><span style="color:#24292E">: </span><span style="color:#032F62">Email sent to owner</span></span></code></pre><p><strong>2. Domain Primitives</strong>
+I model the data shapes using simple <code>AND/OR</code> notation to capture constraints without the noise of classes or ORMs.</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#032F62">data UnvalidatedOffer =</span></span>
+<span class="line"><span style="color:#032F62">  UnvalidatedOfferMethod AND list of UnvalidatedVinyl</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#032F62">data CreditsForTrade = decimal number between 1 and 1000</span></span></code></pre><p><strong>3. Feature Workflow</strong>
+I write a technology-free algorithm. This forces me to think about the <em>process</em> rather than the <em>implementation</em>.</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>Input: UnvalidatedOffer</span></span>
+<span class="line"><span>Step 1: ValidateVinyl</span></span>
+<span class="line"><span>Step 2: ValidateCredits</span></span>
+<span class="line"><span>Step 3: CreateOffer (atomic transaction)</span></span>
+<span class="line"><span>Step 4: SendNotification</span></span></code></pre><h2>4. Build: Double-Loop TDD</h2>
+<p>I use <strong>Acceptance Test-Driven Development (ATDD)</strong> to drive the implementation from the outside in.</p>
+<p><strong>The Outer Loop (Acceptance Tests)</strong>
+Before implementing, I write E2E tests based on the &quot;Understand&quot; phase. These tests are the contract between the customer and the code.</p>
+<ul>
+<li>They must read as plain English behavior statements (BDD/Gherkin style).</li>
+<li>Every failure state identified in Phase 3 becomes a test case here.</li>
+</ul>
+<p><strong>The Inner Loop (Unit Tests)</strong>
+I write unit tests for the specific domain objects and services needed to make the outer loop pass.</p>
+<ul>
+<li><strong>Refactor:</strong> I clean up the code while keeping the tests green.</li>
+<li><strong>Done when:</strong> All tests are green, integration tests pass in CI, and the code is reviewed and verified in staging.</li>
+</ul>
+<hr>
+<h2>My Core Principles</h2>
+<ul>
+<li><strong>Features are the key:</strong> I organize code by feature/subdomain, not by technical layer (controllers/services). A feature is the only thing that matters; everything else is infrastructure.</li>
+<li><strong>Discover edge cases early:</strong> I find edge cases during the &quot;Understand&quot; phase, not in production.</li>
+<li><strong>Separation of concerns:</strong> If a test could fail due to something in a different layer, it is testing the wrong thing. I guard against testing implementation details in acceptance tests.</li>
+<li><strong>Ownership:</strong> I treat code as craft. I am responsible for every line of code shipped, ensuring it solves the essential problem without introducing accidental complexity.</li>
+</ul>
+
+                </article>
+            </main>
+
+            <footer class="footer">
+                <small>
+                    &copy; <time>2026</time>. All rights reserved.
+                </small>
+            </footer>
+        </div>
+        <div id="lightbox" class="lightbox">
+            <button class="lightbox-close" aria-label="Close">&times;</button>
+            <div class="lightbox-content"></div>
+        </div>
+        <script>
+            // Lightbox
+            const lightbox = document.getElementById("lightbox");
+            const lightboxContent = lightbox.querySelector(".lightbox-content");
+            const lightboxClose = lightbox.querySelector(".lightbox-close");
+
+            function openLightbox(svg) {
+                lightboxContent.innerHTML = svg.outerHTML;
+                lightbox.classList.add("open");
+                document.body.style.overflow = "hidden";
+            }
+
+            function closeLightbox() {
+                lightbox.classList.remove("open");
+                document.body.style.overflow = "";
+            }
+
+            document.querySelectorAll(".mermaid").forEach((pre) => {
+                pre.style.cursor = "pointer";
+                pre.style.transition = "opacity 0.2s";
+                pre.addEventListener("mouseenter", () => (pre.style.opacity = "0.8"));
+                pre.addEventListener("mouseleave", () => (pre.style.opacity = "1"));
+                pre.addEventListener("click", function () {
+                    const svg = this.querySelector("svg");
+                    if (svg) openLightbox(svg);
+                });
+            });
+
+            lightbox.addEventListener("click", function (e) {
+                if (e.target === lightbox) closeLightbox();
+            });
+            lightboxClose.addEventListener("click", closeLightbox);
+            document.addEventListener("keydown", function (e) {
+                if (e.key === "Escape") closeLightbox();
+            });
+
+            // Table of Contents
+            const tocWrapper = document.querySelector(".toc-wrapper");
+            const tocTrigger = document.querySelector(".toc-trigger");
+            const tocDropdown = document.querySelector(".toc-dropdown");
+            const tocList = document.querySelector(".toc-list");
+            const tocCurrent = document.querySelector(".toc-current");
+            const progressBar = document.querySelector(".progress-bar");
+            const article = document.querySelector("article.post");
+            const headings = article ? article.querySelectorAll("h1, h2, h3") : [];
+
+            // Build TOC
+            if (headings.length > 0 && tocList) {
+                headings.forEach((h, i) => {
+                    const id = `heading-${i}`;
+                    h.id = id;
+                    const li = document.createElement("li");
+                    li.className = `toc-item toc-${h.tagName.toLowerCase()}`;
+                    const a = document.createElement("a");
+                    a.href = `#${id}`;
+                    a.textContent = h.textContent;
+                    a.addEventListener("click", (e) => {
+                        e.preventDefault();
+                        h.scrollIntoView({ behavior: "smooth" });
+                        tocDropdown.classList.remove("open");
+                    });
+                    li.appendChild(a);
+                    tocList.appendChild(li);
+                });
+            }
+
+            // Toggle dropdown
+            if (tocTrigger && tocDropdown) {
+                tocTrigger.addEventListener("click", () => {
+                    tocDropdown.classList.toggle("open");
+                });
+                document.addEventListener("click", (e) => {
+                    if (!tocWrapper.contains(e.target)) {
+                        tocDropdown.classList.remove("open");
+                    }
+                });
+            }
+
+            // Progress and current heading
+            const circumference = 2 * Math.PI * 10;
+            progressBar.style.strokeDasharray = circumference;
+
+            function updateProgress() {
+                const scrollTop = window.scrollY;
+                const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                const progress = docHeight > 0 ? scrollTop / docHeight : 0;
+                const offset = circumference - progress * circumference;
+                progressBar.style.strokeDashoffset = offset;
+
+                // Find current heading
+                let current = headings[0];
+                for (const h of headings) {
+                    const rect = h.getBoundingClientRect();
+                    if (rect.top <= 100) {
+                        current = h;
+                    }
+                }
+                if (current && tocCurrent) {
+                    tocCurrent.textContent = current.textContent;
+                    tocList.querySelectorAll("a").forEach((a) => {
+                        a.parentElement.classList.toggle("active", a.getAttribute("href") === `#${current.id}`);
+                    });
+                }
+            }
+
+            window.addEventListener("scroll", updateProgress);
+            updateProgress();
+        </script>
+    </body>
+</html>

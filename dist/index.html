@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>zizlfz</title>
+        <meta name="description" content="Personal notes" />
+        <link rel="stylesheet" href="assets/style.css" />
+    </head>
+    <body>
+        <header class="masthead">
+            <div class="container">
+                <h3 class="masthead-title">
+                    <a href="./">zizlfz</a>
+                    <small>Notes</small>
+                </h3>
+                <div class="toc-wrapper">
+                    <button class="toc-trigger" aria-label="Table of contents">
+                        <svg class="progress-circle" viewBox="0 0 24 24">
+                            <circle class="progress-bg" cx="12" cy="12" r="10" />
+                            <circle class="progress-bar" cx="12" cy="12" r="10" />
+                        </svg>
+                        <span class="toc-current">Contents</span>
+                        <svg class="toc-arrow" width="12" height="12" viewBox="0 0 12 12">
+                            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    <nav class="toc-dropdown">
+                        <ul class="toc-list"></ul>
+                    </nav>
+                </div>
+            </div>
+        </header>
+        <div class="container content">
+            <main>
+                <article class="post">
+                    <div class="post-meta">
+                        Last updated at
+                        <time datetime="" class="post-date"></time>
+                    </div>
+                     
+    <div class="homepage-message">
+      <p>There is nothing on the homepage, please access by link directly.</p>
+    </div>
+  
+                </article>
+            </main>
+
+            <footer class="footer">
+                <small>
+                    &copy; <time>2026</time>. All rights reserved.
+                </small>
+            </footer>
+        </div>
+        <div id="lightbox" class="lightbox">
+            <button class="lightbox-close" aria-label="Close">&times;</button>
+            <div class="lightbox-content"></div>
+        </div>
+        <script>
+            // Lightbox
+            const lightbox = document.getElementById("lightbox");
+            const lightboxContent = lightbox.querySelector(".lightbox-content");
+            const lightboxClose = lightbox.querySelector(".lightbox-close");
+
+            function openLightbox(svg) {
+                lightboxContent.innerHTML = svg.outerHTML;
+                lightbox.classList.add("open");
+                document.body.style.overflow = "hidden";
+            }
+
+            function closeLightbox() {
+                lightbox.classList.remove("open");
+                document.body.style.overflow = "";
+            }
+
+            document.querySelectorAll(".mermaid").forEach((pre) => {
+                pre.style.cursor = "pointer";
+                pre.style.transition = "opacity 0.2s";
+                pre.addEventListener("mouseenter", () => (pre.style.opacity = "0.8"));
+                pre.addEventListener("mouseleave", () => (pre.style.opacity = "1"));
+                pre.addEventListener("click", function () {
+                    const svg = this.querySelector("svg");
+                    if (svg) openLightbox(svg);
+                });
+            });
+
+            lightbox.addEventListener("click", function (e) {
+                if (e.target === lightbox) closeLightbox();
+            });
+            lightboxClose.addEventListener("click", closeLightbox);
+            document.addEventListener("keydown", function (e) {
+                if (e.key === "Escape") closeLightbox();
+            });
+
+            // Table of Contents
+            const tocWrapper = document.querySelector(".toc-wrapper");
+            const tocTrigger = document.querySelector(".toc-trigger");
+            const tocDropdown = document.querySelector(".toc-dropdown");
+            const tocList = document.querySelector(".toc-list");
+            const tocCurrent = document.querySelector(".toc-current");
+            const progressBar = document.querySelector(".progress-bar");
+            const article = document.querySelector("article.post");
+            const headings = article ? article.querySelectorAll("h1, h2, h3") : [];
+
+            // Build TOC
+            if (headings.length > 0 && tocList) {
+                headings.forEach((h, i) => {
+                    const id = `heading-${i}`;
+                    h.id = id;
+                    const li = document.createElement("li");
+                    li.className = `toc-item toc-${h.tagName.toLowerCase()}`;
+                    const a = document.createElement("a");
+                    a.href = `#${id}`;
+                    a.textContent = h.textContent;
+                    a.addEventListener("click", (e) => {
+                        e.preventDefault();
+                        h.scrollIntoView({ behavior: "smooth" });
+                        tocDropdown.classList.remove("open");
+                    });
+                    li.appendChild(a);
+                    tocList.appendChild(li);
+                });
+            }
+
+            // Toggle dropdown
+            if (tocTrigger && tocDropdown) {
+                tocTrigger.addEventListener("click", () => {
+                    tocDropdown.classList.toggle("open");
+                });
+                document.addEventListener("click", (e) => {
+                    if (!tocWrapper.contains(e.target)) {
+                        tocDropdown.classList.remove("open");
+                    }
+                });
+            }
+
+            // Progress and current heading
+            const circumference = 2 * Math.PI * 10;
+            progressBar.style.strokeDasharray = circumference;
+
+            function updateProgress() {
+                const scrollTop = window.scrollY;
+                const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                const progress = docHeight > 0 ? scrollTop / docHeight : 0;
+                const offset = circumference - progress * circumference;
+                progressBar.style.strokeDashoffset = offset;
+
+                // Find current heading
+                let current = headings[0];
+                for (const h of headings) {
+                    const rect = h.getBoundingClientRect();
+                    if (rect.top <= 100) {
+                        current = h;
+                    }
+                }
+                if (current && tocCurrent) {
+                    tocCurrent.textContent = current.textContent;
+                    tocList.querySelectorAll("a").forEach((a) => {
+                        a.parentElement.classList.toggle("active", a.getAttribute("href") === `#${current.id}`);
+                    });
+                }
+            }
+
+            window.addEventListener("scroll", updateProgress);
+            updateProgress();
+        </script>
+    </body>
+</html>

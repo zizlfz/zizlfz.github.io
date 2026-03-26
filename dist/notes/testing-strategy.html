@@ -1,0 +1,1056 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Testing Strategy Guide</title>
+        <meta name="description" content=" Testing Strategy Guide> Stack: React · Vitest/Jest · React Testing Library · Playwright> Audience: Mid-level developers> Model: Testing Troph" />
+        <link rel="stylesheet" href="../assets/style.css" />
+    </head>
+    <body>
+        <header class="masthead">
+            <div class="container">
+                <h3 class="masthead-title">
+                    <a href="../">zizlfz</a>
+                    <small>Notes</small>
+                </h3>
+                <div class="toc-wrapper">
+                    <button class="toc-trigger" aria-label="Table of contents">
+                        <svg class="progress-circle" viewBox="0 0 24 24">
+                            <circle class="progress-bg" cx="12" cy="12" r="10" />
+                            <circle class="progress-bar" cx="12" cy="12" r="10" />
+                        </svg>
+                        <span class="toc-current">Contents</span>
+                        <svg class="toc-arrow" width="12" height="12" viewBox="0 0 12 12">
+                            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    <nav class="toc-dropdown">
+                        <ul class="toc-list"></ul>
+                    </nav>
+                </div>
+            </div>
+        </header>
+        <div class="container content">
+            <main>
+                <article class="post">
+                    <div class="post-meta">
+                        Last updated at
+                        <time datetime="2026-03-26" class="post-date">March 26, 2026</time>
+                    </div>
+                     <h1>Testing Strategy Guide</h1>
+<blockquote>
+<p><strong>Stack:</strong> React · Vitest/Jest · React Testing Library · Playwright
+<strong>Audience:</strong> Mid-level developers
+<strong>Model:</strong> Testing Trophy</p>
+</blockquote>
+<hr>
+<h2>1. Philosophy: The Testing Trophy</h2>
+<p>We follow the <strong>Testing Trophy</strong> model — not the classic pyramid. The key insight is that <strong>integration tests give the highest return on investment</strong>: they test real user behavior without the cost and fragility of full E2E tests.</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>        /‾‾‾‾‾‾‾‾‾‾‾‾\</span></span>
+<span class="line"><span>       /   E2E (few)  \       ← Smoke tests only. 10–20 max.</span></span>
+<span class="line"><span>      /‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\</span></span>
+<span class="line"><span>     /Integration (most)\   ← Primary investment. UI + MSW.</span></span>
+<span class="line"><span>    /‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\</span></span>
+<span class="line"><span>   /    Unit (as needed)    \  ← Pure functions &#x26; complex logic only.</span></span>
+<span class="line"><span>  /‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\</span></span>
+<span class="line"><span> /       Static (always)      \ ← TypeScript, ESLint. Free coverage.</span></span>
+<span class="line"><span>/‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\</span></span></code></pre><h3>Core Principles</h3>
+<table>
+<thead>
+<tr>
+<th>Principle</th>
+<th>What it means in practice</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>E2E as smoke tests</strong></td>
+<td>Only cover critical happy paths. Not a regression suite.</td>
+</tr>
+<tr>
+<td><strong>Separation of concerns</strong></td>
+<td>Test backend logic on the backend. Frontend tests own UI behavior only.</td>
+</tr>
+<tr>
+<td><strong>The contract is key</strong></td>
+<td>Frontend tests verify the UI correctly handles the API&#39;s JSON shape and status codes — not the API logic itself.</td>
+</tr>
+<tr>
+<td><strong>Test behavior, not implementation</strong></td>
+<td>Assert what the user sees, not how the component is structured internally.</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>2. Tier Reference</h2>
+<h3>Tier 1 — E2E Tests (Playwright)</h3>
+<p><strong>Purpose:</strong> Verify the entire system (Frontend + Backend + DB) works end-to-end for the most critical user journeys.</p>
+<p><strong>When to write one:</strong> Ask yourself — <em>&quot;If this breaks silently, would it be a production incident?&quot;</em> If yes, it deserves an E2E test.</p>
+<p><strong>Keep the suite lean: 10–20 tests maximum.</strong> Every test you add here is a test that can go flaky and slow down CI.</p>
+<p><strong>Good candidates:</strong></p>
+<ul>
+<li>User signs up and lands on the dashboard</li>
+<li>User logs in and sees their data</li>
+<li>User completes a checkout / form submission flow</li>
+<li>User resets their password</li>
+</ul>
+<p><strong>Bad candidates (use integration tests instead):</strong></p>
+<ul>
+<li>Validating a specific error message from the API</li>
+<li>Testing a disabled button state</li>
+<li>Testing a loading spinner</li>
+</ul>
+<p><strong>Example — Login happy path:</strong></p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// tests/e2e/auth.spec.ts</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> { test, expect } </span><span style="color:#D73A49">from</span><span style="color:#032F62"> '@playwright/test'</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">test</span><span style="color:#24292E">(</span><span style="color:#032F62">'user can log in and reach the dashboard'</span><span style="color:#24292E">, </span><span style="color:#D73A49">async</span><span style="color:#24292E"> ({ </span><span style="color:#E36209">page</span><span style="color:#24292E"> }) </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> page.</span><span style="color:#6F42C1">goto</span><span style="color:#24292E">(</span><span style="color:#032F62">'/login'</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> page.</span><span style="color:#6F42C1">getByLabel</span><span style="color:#24292E">(</span><span style="color:#032F62">'Email'</span><span style="color:#24292E">).</span><span style="color:#6F42C1">fill</span><span style="color:#24292E">(</span><span style="color:#032F62">'user@example.com'</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> page.</span><span style="color:#6F42C1">getByLabel</span><span style="color:#24292E">(</span><span style="color:#032F62">'Password'</span><span style="color:#24292E">).</span><span style="color:#6F42C1">fill</span><span style="color:#24292E">(</span><span style="color:#032F62">'correctpassword'</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> page.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'button'</span><span style="color:#24292E">, { name: </span><span style="color:#032F62">'Log in'</span><span style="color:#24292E"> }).</span><span style="color:#6F42C1">click</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#6F42C1"> expect</span><span style="color:#24292E">(page).</span><span style="color:#6F42C1">toHaveURL</span><span style="color:#24292E">(</span><span style="color:#032F62">'/dashboard'</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#6F42C1"> expect</span><span style="color:#24292E">(page.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'heading'</span><span style="color:#24292E">, { name: </span><span style="color:#032F62">'Welcome back'</span><span style="color:#24292E"> })).</span><span style="color:#6F42C1">toBeVisible</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">});</span></span></code></pre><hr>
+<h3>Tier 2 — Integration Tests (Vitest + RTL + MSW) ✅ Primary investment</h3>
+<p><strong>Purpose:</strong> Verify how the UI handles the full range of API responses — success, errors, loading states, edge cases — without a real network.</p>
+<p><strong>The golden rule:</strong> Use <a href="https://mswjs.io/">Mock Service Worker (MSW)</a> to intercept requests at the network level. This tests the real fetch/axios call in your component, not a mocked function.</p>
+<p><strong>What to test at this tier:</strong></p>
+<ul>
+<li>Component renders correctly on API success (200)</li>
+<li>Component shows the right error message on API failure (400, 401, 404, 500)</li>
+<li>Loading state is shown while a request is in-flight</li>
+<li>Form validation messages appear correctly</li>
+<li>User interactions trigger the correct API calls</li>
+</ul>
+<p><strong>MSW setup:</strong></p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// src/mocks/handlers.ts</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> { http, HttpResponse } </span><span style="color:#D73A49">from</span><span style="color:#032F62"> 'msw'</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">export</span><span style="color:#D73A49"> const</span><span style="color:#005CC5"> handlers</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> [</span></span>
+<span class="line"><span style="color:#24292E">  http.</span><span style="color:#6F42C1">post</span><span style="color:#24292E">(</span><span style="color:#032F62">'/api/login'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">    return</span><span style="color:#24292E"> HttpResponse.</span><span style="color:#6F42C1">json</span><span style="color:#24292E">({ token: </span><span style="color:#032F62">'abc123'</span><span style="color:#24292E"> }, { status: </span><span style="color:#005CC5">200</span><span style="color:#24292E"> });</span></span>
+<span class="line"><span style="color:#24292E">  }),</span></span>
+<span class="line"><span style="color:#24292E">];</span></span></code></pre><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// src/mocks/server.ts</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> { setupServer } </span><span style="color:#D73A49">from</span><span style="color:#032F62"> 'msw/node'</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> { handlers } </span><span style="color:#D73A49">from</span><span style="color:#032F62"> './handlers'</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">export</span><span style="color:#D73A49"> const</span><span style="color:#005CC5"> server</span><span style="color:#D73A49"> =</span><span style="color:#6F42C1"> setupServer</span><span style="color:#24292E">(</span><span style="color:#D73A49">...</span><span style="color:#24292E">handlers);</span></span></code></pre><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// vitest.setup.ts</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> { server } </span><span style="color:#D73A49">from</span><span style="color:#032F62"> './src/mocks/server'</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">beforeAll</span><span style="color:#24292E">(() </span><span style="color:#D73A49">=></span><span style="color:#24292E"> server.</span><span style="color:#6F42C1">listen</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#6F42C1">afterEach</span><span style="color:#24292E">(() </span><span style="color:#D73A49">=></span><span style="color:#24292E"> server.</span><span style="color:#6F42C1">resetHandlers</span><span style="color:#24292E">()); </span><span style="color:#6A737D">// Reset overrides after each test</span></span>
+<span class="line"><span style="color:#6F42C1">afterAll</span><span style="color:#24292E">(() </span><span style="color:#D73A49">=></span><span style="color:#24292E"> server.</span><span style="color:#6F42C1">close</span><span style="color:#24292E">());</span></span></code></pre><p><strong>Example — Testing an API error response:</strong></p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// src/features/login/LoginForm.test.tsx</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> { render, screen } </span><span style="color:#D73A49">from</span><span style="color:#032F62"> '@testing-library/react'</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> userEvent </span><span style="color:#D73A49">from</span><span style="color:#032F62"> '@testing-library/user-event'</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> { http, HttpResponse } </span><span style="color:#D73A49">from</span><span style="color:#032F62"> 'msw'</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> { server } </span><span style="color:#D73A49">from</span><span style="color:#032F62"> '../../mocks/server'</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> { LoginForm } </span><span style="color:#D73A49">from</span><span style="color:#032F62"> './LoginForm'</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">test</span><span style="color:#24292E">(</span><span style="color:#032F62">'shows a validation error when credentials are invalid'</span><span style="color:#24292E">, </span><span style="color:#D73A49">async</span><span style="color:#24292E"> () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6A737D">  // Override the default handler for this test only</span></span>
+<span class="line"><span style="color:#24292E">  server.</span><span style="color:#6F42C1">use</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#24292E">    http.</span><span style="color:#6F42C1">post</span><span style="color:#24292E">(</span><span style="color:#032F62">'/api/login'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">      return</span><span style="color:#24292E"> HttpResponse.</span><span style="color:#6F42C1">json</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#24292E">        { message: </span><span style="color:#032F62">'Invalid email or password.'</span><span style="color:#24292E"> },</span></span>
+<span class="line"><span style="color:#24292E">        { status: </span><span style="color:#005CC5">400</span><span style="color:#24292E"> }</span></span>
+<span class="line"><span style="color:#24292E">      );</span></span>
+<span class="line"><span style="color:#24292E">    })</span></span>
+<span class="line"><span style="color:#24292E">  );</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  render</span><span style="color:#24292E">(&#x3C;</span><span style="color:#6F42C1">LoginForm</span><span style="color:#24292E"> />);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> userEvent.</span><span style="color:#6F42C1">type</span><span style="color:#24292E">(screen.</span><span style="color:#6F42C1">getByLabelText</span><span style="color:#24292E">(</span><span style="color:#032F62">'Email'</span><span style="color:#24292E">), </span><span style="color:#032F62">'wrong@example.com'</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> userEvent.</span><span style="color:#6F42C1">type</span><span style="color:#24292E">(screen.</span><span style="color:#6F42C1">getByLabelText</span><span style="color:#24292E">(</span><span style="color:#032F62">'Password'</span><span style="color:#24292E">), </span><span style="color:#032F62">'wrongpassword'</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> userEvent.</span><span style="color:#6F42C1">click</span><span style="color:#24292E">(screen.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'button'</span><span style="color:#24292E">, { name: </span><span style="color:#032F62">'Log in'</span><span style="color:#24292E"> }));</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  expect</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#D73A49">    await</span><span style="color:#24292E"> screen.</span><span style="color:#6F42C1">findByText</span><span style="color:#24292E">(</span><span style="color:#032F62">'Invalid email or password.'</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#24292E">  ).</span><span style="color:#6F42C1">toBeInTheDocument</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">});</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">test</span><span style="color:#24292E">(</span><span style="color:#032F62">'shows a loading state while the request is in-flight'</span><span style="color:#24292E">, </span><span style="color:#D73A49">async</span><span style="color:#24292E"> () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">  server.</span><span style="color:#6F42C1">use</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#24292E">    http.</span><span style="color:#6F42C1">post</span><span style="color:#24292E">(</span><span style="color:#032F62">'/api/login'</span><span style="color:#24292E">, </span><span style="color:#D73A49">async</span><span style="color:#24292E"> () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">      await</span><span style="color:#D73A49"> new</span><span style="color:#005CC5"> Promise</span><span style="color:#24292E">(</span><span style="color:#E36209">resolve</span><span style="color:#D73A49"> =></span><span style="color:#6F42C1"> setTimeout</span><span style="color:#24292E">(resolve, </span><span style="color:#005CC5">100</span><span style="color:#24292E">)); </span><span style="color:#6A737D">// Simulate delay</span></span>
+<span class="line"><span style="color:#D73A49">      return</span><span style="color:#24292E"> HttpResponse.</span><span style="color:#6F42C1">json</span><span style="color:#24292E">({ token: </span><span style="color:#032F62">'abc123'</span><span style="color:#24292E"> });</span></span>
+<span class="line"><span style="color:#24292E">    })</span></span>
+<span class="line"><span style="color:#24292E">  );</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  render</span><span style="color:#24292E">(&#x3C;</span><span style="color:#6F42C1">LoginForm</span><span style="color:#24292E"> />);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> userEvent.</span><span style="color:#6F42C1">click</span><span style="color:#24292E">(screen.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'button'</span><span style="color:#24292E">, { name: </span><span style="color:#032F62">'Log in'</span><span style="color:#24292E"> }));</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  expect</span><span style="color:#24292E">(screen.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'button'</span><span style="color:#24292E">, { name: </span><span style="color:#032F62">'Logging in…'</span><span style="color:#24292E"> })).</span><span style="color:#6F42C1">toBeDisabled</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">});</span></span></code></pre><hr>
+<h3>Tier 3 — Unit Tests (Vitest)</h3>
+<p><strong>Purpose:</strong> Test pure functions and complex logic that have no UI or network dependency.</p>
+<p><strong>When to write one:</strong> If the logic lives in a standalone function and has branching complexity, edge cases, or transformations that are hard to cover via integration tests — unit test it directly.</p>
+<p><strong>Do not unit test:</strong> React components, hooks that make API calls, or anything that requires a rendered DOM. Those belong in Tier 2.</p>
+<p><strong>Good candidates:</strong></p>
+<ul>
+<li>Password complexity validators</li>
+<li>Date formatting utilities</li>
+<li>Price calculation functions</li>
+<li>Data transformation/mapping functions</li>
+</ul>
+<p><strong>Example:</strong></p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// src/utils/passwordValidator.test.ts</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> { validatePassword } </span><span style="color:#D73A49">from</span><span style="color:#032F62"> './passwordValidator'</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">describe</span><span style="color:#24292E">(</span><span style="color:#032F62">'validatePassword'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">  it</span><span style="color:#24292E">(</span><span style="color:#032F62">'returns invalid if password is shorter than 8 characters'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">    expect</span><span style="color:#24292E">(</span><span style="color:#6F42C1">validatePassword</span><span style="color:#24292E">(</span><span style="color:#032F62">'short'</span><span style="color:#24292E">)).</span><span style="color:#6F42C1">toEqual</span><span style="color:#24292E">({</span></span>
+<span class="line"><span style="color:#24292E">      valid: </span><span style="color:#005CC5">false</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">      error: </span><span style="color:#032F62">'Password must be at least 8 characters.'</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    });</span></span>
+<span class="line"><span style="color:#24292E">  });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  it</span><span style="color:#24292E">(</span><span style="color:#032F62">'returns invalid if password has no uppercase letter'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">    expect</span><span style="color:#24292E">(</span><span style="color:#6F42C1">validatePassword</span><span style="color:#24292E">(</span><span style="color:#032F62">'alllowercase1!'</span><span style="color:#24292E">)).</span><span style="color:#6F42C1">toEqual</span><span style="color:#24292E">({</span></span>
+<span class="line"><span style="color:#24292E">      valid: </span><span style="color:#005CC5">false</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">      error: </span><span style="color:#032F62">'Password must contain at least one uppercase letter.'</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    });</span></span>
+<span class="line"><span style="color:#24292E">  });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  it</span><span style="color:#24292E">(</span><span style="color:#032F62">'returns valid for a strong password'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">    expect</span><span style="color:#24292E">(</span><span style="color:#6F42C1">validatePassword</span><span style="color:#24292E">(</span><span style="color:#032F62">'StrongPass1!'</span><span style="color:#24292E">)).</span><span style="color:#6F42C1">toEqual</span><span style="color:#24292E">({ valid: </span><span style="color:#005CC5">true</span><span style="color:#24292E"> });</span></span>
+<span class="line"><span style="color:#24292E">  });</span></span>
+<span class="line"><span style="color:#24292E">});</span></span></code></pre><hr>
+<h2>3. The &quot;What Deserves a Test?&quot; Decision Guide</h2>
+<p>This is the most common source of disagreement on teams. Use this flowchart as a shared reference.</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>Is this pure logic with no UI or network?</span></span>
+<span class="line"><span>  └─ Yes → Unit test it.</span></span>
+<span class="line"><span>  └─ No ↓</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>Does it involve how the UI responds to an API?</span></span>
+<span class="line"><span>  └─ Yes → Integration test with MSW.</span></span>
+<span class="line"><span>  └─ No ↓</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>Is it a critical user journey that touches the full stack?</span></span>
+<span class="line"><span>  └─ Yes → E2E test (only if the suite is under 20 tests).</span></span>
+<span class="line"><span>  └─ No → Integration test is probably enough.</span></span></code></pre><h3>The &quot;Should I test this?&quot; checklist</h3>
+<p>Before writing a test, ask:</p>
+<ul>
+<li><input disabled="" type="checkbox"> Would a bug here be caught by an existing test? (Don&#39;t duplicate coverage.)</li>
+<li><input disabled="" type="checkbox"> Am I testing <em>what the user experiences</em>, not <em>how the code is structured</em>?</li>
+<li><input disabled="" type="checkbox"> If I refactor this component, will this test still be valid? (It should be.)</li>
+<li><input disabled="" type="checkbox"> Am I testing the contract (API shape + status code) rather than the implementation detail?</li>
+</ul>
+<hr>
+<h2>4. Flaky E2E Tests — Causes &amp; Fixes</h2>
+<p>Flakiness is the #1 reason E2E suites get abandoned. The cause is almost always <strong>timing assumptions</strong> or <strong>shared state</strong>.</p>
+<h3>Common causes and solutions</h3>
+<table>
+<thead>
+<tr>
+<th>Cause</th>
+<th>Bad pattern</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Race conditions</td>
+<td><code>await page.waitForTimeout(2000)</code></td>
+<td><code>await expect(locator).toBeVisible()</code></td>
+</tr>
+<tr>
+<td>Hard-coded selectors</td>
+<td><code>page.locator(&#39;.btn-primary&#39;)</code></td>
+<td><code>page.getByRole(&#39;button&#39;, { name: &#39;...&#39; })</code></td>
+</tr>
+<tr>
+<td>Test order dependency</td>
+<td>Tests sharing DB/session state</td>
+<td>Each test creates its own data</td>
+</tr>
+<tr>
+<td>Brittle network assumptions</td>
+<td>Real API calls in E2E</td>
+<td>Use a test environment with seed data</td>
+</tr>
+</tbody></table>
+<h3>Playwright best practices</h3>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// ❌ Fragile — assumes 2 seconds is always enough</span></span>
+<span class="line"><span style="color:#D73A49">await</span><span style="color:#24292E"> page.</span><span style="color:#6F42C1">waitForTimeout</span><span style="color:#24292E">(</span><span style="color:#005CC5">2000</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">await</span><span style="color:#6F42C1"> expect</span><span style="color:#24292E">(page.</span><span style="color:#6F42C1">locator</span><span style="color:#24292E">(</span><span style="color:#032F62">'.success-message'</span><span style="color:#24292E">)).</span><span style="color:#6F42C1">toBeVisible</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">// ✅ Resilient — waits for the condition to be true</span></span>
+<span class="line"><span style="color:#D73A49">await</span><span style="color:#6F42C1"> expect</span><span style="color:#24292E">(page.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'alert'</span><span style="color:#24292E">, { name:</span><span style="color:#032F62"> /success/</span><span style="color:#D73A49">i</span><span style="color:#24292E"> })).</span><span style="color:#6F42C1">toBeVisible</span><span style="color:#24292E">();</span></span></code></pre><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// ❌ Fragile — breaks on any CSS refactor</span></span>
+<span class="line"><span style="color:#24292E">page.</span><span style="color:#6F42C1">locator</span><span style="color:#24292E">(</span><span style="color:#032F62">'.form-submit-btn'</span><span style="color:#24292E">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">// ✅ Resilient — tied to accessible semantics, not styling</span></span>
+<span class="line"><span style="color:#24292E">page.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'button'</span><span style="color:#24292E">, { name: </span><span style="color:#032F62">'Submit'</span><span style="color:#24292E"> })</span></span></code></pre><h3>Isolating test state</h3>
+<p>Each E2E test should be independent. Use Playwright&#39;s <code>beforeEach</code> to log in, and avoid tests that depend on the outcome of a previous test.</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#24292E">test.</span><span style="color:#6F42C1">beforeEach</span><span style="color:#24292E">(</span><span style="color:#D73A49">async</span><span style="color:#24292E"> ({ </span><span style="color:#E36209">page</span><span style="color:#24292E"> }) </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6A737D">  // Use a dedicated API route to set up state rather than navigating through UI</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> page.request.</span><span style="color:#6F42C1">post</span><span style="color:#24292E">(</span><span style="color:#032F62">'/api/test-setup/seed-user'</span><span style="color:#24292E">, {</span></span>
+<span class="line"><span style="color:#24292E">    data: { email: </span><span style="color:#032F62">'test@example.com'</span><span style="color:#24292E">, password: </span><span style="color:#032F62">'TestPass1!'</span><span style="color:#24292E"> }</span></span>
+<span class="line"><span style="color:#24292E">  });</span></span>
+<span class="line"><span style="color:#24292E">});</span></span></code></pre><hr>
+<h2>5. CI Pipeline Strategy</h2>
+<p>Slow CI discourages thorough testing. Structure your pipeline to give fast feedback first.</p>
+<h3>Recommended pipeline order</h3>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>[1] Static analysis      ~10s   TypeScript, ESLint            ← Fastest feedback</span></span>
+<span class="line"><span>[2] Unit tests           ~30s   Vitest                        ← Fail fast on logic errors</span></span>
+<span class="line"><span>[3] Integration tests    ~2min  Vitest + RTL + MSW            ← Primary regression gate</span></span>
+<span class="line"><span>[4] E2E tests            ~5min  Playwright (headless)         ← Run last; most expensive</span></span></code></pre><h3>Keeping E2E fast</h3>
+<ul>
+<li><strong>Run E2E tests in parallel.</strong> Playwright supports this natively via <code>workers</code> config.</li>
+<li><strong>Only run E2E on <code>main</code> / PR merges</strong>, not on every commit to feature branches.</li>
+<li><strong>Cap the suite at 20 tests.</strong> If you&#39;re exceeding this, convert candidates to integration tests.</li>
+</ul>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// playwright.config.ts</span></span>
+<span class="line"><span style="color:#D73A49">export</span><span style="color:#D73A49"> default</span><span style="color:#6F42C1"> defineConfig</span><span style="color:#24292E">({</span></span>
+<span class="line"><span style="color:#24292E">  fullyParallel: </span><span style="color:#005CC5">true</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">  workers: process.env.</span><span style="color:#005CC5">CI</span><span style="color:#D73A49"> ?</span><span style="color:#005CC5"> 4</span><span style="color:#D73A49"> :</span><span style="color:#005CC5"> undefined</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">  retries: process.env.</span><span style="color:#005CC5">CI</span><span style="color:#D73A49"> ?</span><span style="color:#005CC5"> 1</span><span style="color:#D73A49"> :</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">, </span><span style="color:#6A737D">// One retry in CI only; never locally</span></span>
+<span class="line"><span style="color:#24292E">  use: {</span></span>
+<span class="line"><span style="color:#24292E">    baseURL: process.env.</span><span style="color:#005CC5">BASE_URL</span><span style="color:#D73A49"> ??</span><span style="color:#032F62"> 'http://localhost:3000'</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">  },</span></span>
+<span class="line"><span style="color:#24292E">});</span></span></code></pre><h3>Vitest configuration for speed</h3>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// vitest.config.ts</span></span>
+<span class="line"><span style="color:#D73A49">export</span><span style="color:#D73A49"> default</span><span style="color:#6F42C1"> defineConfig</span><span style="color:#24292E">({</span></span>
+<span class="line"><span style="color:#24292E">  test: {</span></span>
+<span class="line"><span style="color:#24292E">    environment: </span><span style="color:#032F62">'jsdom'</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    setupFiles: [</span><span style="color:#032F62">'./vitest.setup.ts'</span><span style="color:#24292E">],</span></span>
+<span class="line"><span style="color:#24292E">    pool: </span><span style="color:#032F62">'threads'</span><span style="color:#24292E">,       </span><span style="color:#6A737D">// Faster than forks for most test suites</span></span>
+<span class="line"><span style="color:#24292E">    coverage: {</span></span>
+<span class="line"><span style="color:#24292E">      reporter: [</span><span style="color:#032F62">'text'</span><span style="color:#24292E">, </span><span style="color:#032F62">'lcov'</span><span style="color:#24292E">],</span></span>
+<span class="line"><span style="color:#24292E">      exclude: [</span><span style="color:#032F62">'**/*.test.tsx'</span><span style="color:#24292E">, </span><span style="color:#032F62">'**/mocks/**'</span><span style="color:#24292E">],</span></span>
+<span class="line"><span style="color:#24292E">    },</span></span>
+<span class="line"><span style="color:#24292E">  },</span></span>
+<span class="line"><span style="color:#24292E">});</span></span></code></pre><hr>
+<h2>6. Coverage Guidelines</h2>
+<p>Coverage numbers are a signal, not a goal. <strong>Don&#39;t chase 100%.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Target</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Utility functions</td>
+<td>90–100%</td>
+<td>Pure logic; easy and high-value to cover fully</td>
+</tr>
+<tr>
+<td>UI components</td>
+<td>70–80%</td>
+<td>Focus on user-facing behavior, not every internal branch</td>
+</tr>
+<tr>
+<td>E2E critical paths</td>
+<td>100% of defined happy paths</td>
+<td>If it&#39;s in scope, it must have a test</td>
+</tr>
+<tr>
+<td>Third-party integrations</td>
+<td>Minimal</td>
+<td>Test the contract, not the library</td>
+</tr>
+</tbody></table>
+<p>A component with 60% coverage that tests the right behaviors is more valuable than one with 95% coverage that only tests implementation details.</p>
+<hr>
+<h2>7. Quick Reference</h2>
+<h3>Which tool for which job</h3>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Tool</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Validate a utility function</td>
+<td>Vitest unit test</td>
+</tr>
+<tr>
+<td>Test a form shows the right error from a 400 response</td>
+<td>Vitest + RTL + MSW</td>
+</tr>
+<tr>
+<td>Test a loading spinner appears</td>
+<td>Vitest + RTL + MSW</td>
+</tr>
+<tr>
+<td>Test a user can complete checkout end-to-end</td>
+<td>Playwright</td>
+</tr>
+<tr>
+<td>Test TypeScript types are correct</td>
+<td><code>tsc --noEmit</code> in CI</td>
+</tr>
+</tbody></table>
+<h3>Query priority in React Testing Library</h3>
+<p>Always prefer queries that reflect what a user actually perceives:</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>1. getByRole          ← Preferred. Accessible and resilient.</span></span>
+<span class="line"><span>2. getByLabelText     ← Great for form fields.</span></span>
+<span class="line"><span>3. getByPlaceholderText</span></span>
+<span class="line"><span>4. getByText</span></span>
+<span class="line"><span>5. getByDisplayValue</span></span>
+<span class="line"><span>6. getByAltText</span></span>
+<span class="line"><span>7. getByTitle</span></span>
+<span class="line"><span>8. getByTestId        ← Last resort. Avoid unless nothing else works.</span></span></code></pre><hr>
+<h2>9. Feature Scenario Map: Checkout Flow</h2>
+<p>This section shows how to systematically break a feature into all its scenarios and assign the right test tier to each one. Use this as a template when planning tests for any new feature.</p>
+<h3>Scenario inventory</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Scenario</th>
+<th>Trigger</th>
+<th>Expected outcome</th>
+<th>Test tier</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Successful checkout</td>
+<td>Valid card, items in cart, user logged in</td>
+<td>Order confirmed, redirect to <code>/order-confirmation</code></td>
+<td><strong>E2E</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Payment declined</td>
+<td>Card processor returns decline</td>
+<td>Error banner shown, user stays on checkout</td>
+<td><strong>Integration</strong></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Network failure</td>
+<td>API returns 500</td>
+<td>Generic error shown, retry button visible</td>
+<td><strong>Integration</strong></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Session expired mid-checkout</td>
+<td>API returns 401</td>
+<td>Redirect to <code>/login?redirect=/checkout</code></td>
+<td><strong>Integration</strong></td>
+</tr>
+<tr>
+<td>5</td>
+<td>Cart is empty</td>
+<td>User navigates to <code>/checkout</code> directly</td>
+<td>Redirect to <code>/cart</code></td>
+<td><strong>Integration</strong></td>
+</tr>
+<tr>
+<td>6</td>
+<td>Invalid promo code</td>
+<td><code>POST /apply-promo</code> returns 400</td>
+<td>Inline error shown under promo field</td>
+<td><strong>Integration</strong></td>
+</tr>
+<tr>
+<td>7</td>
+<td>Valid promo code</td>
+<td><code>POST /apply-promo</code> returns 200</td>
+<td>Discount applied, total updates</td>
+<td><strong>Integration</strong></td>
+</tr>
+<tr>
+<td>8</td>
+<td>Loading state</td>
+<td>API call in-flight</td>
+<td>Submit button disabled and shows spinner</td>
+<td><strong>Integration</strong></td>
+</tr>
+<tr>
+<td>9</td>
+<td>Price calculation logic</td>
+<td>Free function <code>calculateOrderTotal()</code></td>
+<td>Subtotal + tax + shipping = total</td>
+<td><strong>Unit</strong></td>
+</tr>
+<tr>
+<td>10</td>
+<td>Promo code format validation</td>
+<td>Free function <code>isValidPromoFormat()</code></td>
+<td>Rejects blank/short codes before API call</td>
+<td><strong>Unit</strong></td>
+</tr>
+</tbody></table>
+<h3>Scenario diagram</h3>
+<div class="mermaid"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1456.975 895.4369999999999" width="1456.975" height="895.4369999999999" style="--bg:#fff;--fg:#515151">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="A" data-to="B" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="933.0652499999999,76.9 933.0652499999999,124.90000000000012" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="B" data-to="C" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Yes" points="910.5880833333332,237.28583333333324 910.5880833333332,295.76300000000003 843.0709999999999,295.76300000000003 843.0709999999999,364.063" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="B" data-to="D" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="No" points="955.5424166666666,237.28583333333347 955.5424166666666,271.76300000000003 1023.0595,271.76300000000003 1023.0595,364.063" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="D" data-to="E" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1023.0595,400.96299999999997 1023.0595,412.96299999999997 496.0155,412.96299999999997 496.0155,424.963" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="E" data-to="F" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="200 OK" points="451.99979999999994,527.6663 451.99979999999994,595.682 149.89499999999998,595.682 149.89499999999998,687.982" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="E" data-to="G" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="402 Declined" points="481.3435999999999,557.0101 481.3435999999999,607.682 373.97299999999996,607.682 373.97299999999996,687.982" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="E" data-to="H" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="401 Unauthorized" points="510.6873999999999,557.0101000000001 510.6873999999999,619.682 618.058,619.682 618.058,687.982" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="E" data-to="I" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="500 Server error" points="540.0311999999999,527.6663000000001 540.0311999999999,595.682 854.733,595.682 854.733,687.982" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="D" data-to="J" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1023.0595,400.96299999999997 1023.0595,412.96299999999997 1023.0595,412.96299999999997 1023.0595,502.02250000000004" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="J" data-to="K" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1023.0595,538.9225 1023.0595,591.082" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="D" data-to="L" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1023.0595,400.96299999999997 1023.0595,412.96299999999997 1239.501,412.96299999999997 1239.501,424.963" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="L" data-to="M" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1239.501,461.863 1239.501,502.02250000000004" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="M" data-to="N" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="200 OK" points="1208.2553333333333,658.2508333333333 1208.2553333333333,721.337 1147.8395,721.337 1147.8395,801.637" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="M" data-to="O" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="400 Bad code" points="1270.7466666666667,658.2508333333333 1270.7466666666667,721.337 1331.1625,721.337 1331.1625,801.637" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="B" data-to="C" data-label="Yes">
+  <rect x="824.5709999999999" y="302.76300000000003" width="36.658" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="842.8999999999999" y="317.913" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Yes</text>
+</g>
+<g class="edge-label" data-from="B" data-to="D" data-label="No">
+  <rect x="1007.5595" y="278.76300000000003" width="30.718000000000004" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="1022.9185" y="293.913" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">No</text>
+</g>
+<g class="edge-label" data-from="E" data-to="F" data-label="200 OK">
+  <rect x="123.89499999999997" y="602.682" width="51.508" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="149.64899999999997" y="617.832" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">200 OK</text>
+</g>
+<g class="edge-label" data-from="E" data-to="G" data-label="402 Declined">
+  <rect x="334.47299999999996" y="614.682" width="78.83200000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="373.88899999999995" y="629.832" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">402 Declined</text>
+</g>
+<g class="edge-label" data-from="E" data-to="H" data-label="401 Unauthorized">
+  <rect x="569.058" y="626.682" width="97.84000000000003" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="617.9780000000001" y="641.832" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">401 Unauthorized</text>
+</g>
+<g class="edge-label" data-from="E" data-to="I" data-label="500 Server error">
+  <rect x="804.733" y="602.682" width="99.62200000000003" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="854.544" y="617.832" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">500 Server error</text>
+</g>
+<g class="edge-label" data-from="M" data-to="N" data-label="200 OK">
+  <rect x="1121.8395" y="728.337" width="51.508" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="1147.5935" y="743.487" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">200 OK</text>
+</g>
+<g class="edge-label" data-from="M" data-to="O" data-label="400 Bad code">
+  <rect x="1290.1625" y="728.337" width="81.80200000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="1331.0635" y="743.487" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">400 Bad code</text>
+</g>
+<g class="node" data-id="A" data-label="User on /checkout" data-shape="stadium">
+  <rect x="858.3677499999999" y="40" width="149.39499999999998" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="933.0652499999999" y="58.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">User on /checkout</text>
+</g>
+<g class="node" data-id="B" data-label="Cart empty?" data-shape="diamond">
+  <polygon points="933.06525,124.9 1000.49675,192.3315 933.06525,259.76300000000003 865.63375,192.3315" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="933.06525" y="192.3315" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Cart empty?</text>
+</g>
+<g class="node" data-id="C" data-label="Redirect to /cart" data-shape="rectangle">
+  <rect x="775.7834999999999" y="364.063" width="134.57500000000002" height="36.900000000000006" rx="0" ry="0" fill="#fff3cd" stroke="#ffc107" stroke-width="0.75" />
+  <text x="843.0709999999999" y="382.513" text-anchor="middle" font-size="13" font-weight="500" fill="#7d5a00" dy="4.55">Redirect to /cart</text>
+</g>
+<g class="node" data-id="D" data-label="User submits payment" data-shape="rectangle">
+  <rect x="938.3584999999999" y="364.063" width="169.402" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1023.0595" y="382.513" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">User submits payment</text>
+</g>
+<g class="node" data-id="E" data-label="API response" data-shape="diamond">
+  <polygon points="496.0155,424.96299999999997 569.375,498.3225 496.0155,571.682 422.65599999999995,498.3225" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="496.0155" y="498.3225" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">API response</text>
+</g>
+<g class="node" data-id="F" data-label="Redirect to /order-confirmation" data-shape="rectangle">
+  <rect x="40" y="687.982" width="219.78999999999994" height="36.900000000000006" rx="0" ry="0" fill="#d4edda" stroke="#28a745" stroke-width="0.75" />
+  <text x="149.89499999999998" y="706.432" text-anchor="middle" font-size="13" font-weight="500" fill="#1a5c2a" dy="4.55">Redirect to /order-confirmation</text>
+</g>
+<g class="node" data-id="G" data-label="Show declined banner
+User stays on page" data-shape="rectangle">
+  <rect x="287.78999999999996" y="687.982" width="172.36599999999999" height="53.800000000000004" rx="0" ry="0" fill="#f8d7da" stroke="#dc3545" stroke-width="0.75" />
+  <text x="373.97299999999996" y="714.882" text-anchor="middle" font-size="13" font-weight="500" fill="#721c24"><tspan x="373.97299999999996" dy="-3.9000000000000012">Show declined banner</tspan><tspan x="373.97299999999996" dy="16.900000000000002">User stays on page</tspan></text>
+</g>
+<g class="node" data-id="H" data-label="Redirect to /login?redirect=/checkout" data-shape="rectangle">
+  <rect x="488.15599999999995" y="687.982" width="259.804" height="36.900000000000006" rx="0" ry="0" fill="#fff3cd" stroke="#ffc107" stroke-width="0.75" />
+  <text x="618.058" y="706.432" text-anchor="middle" font-size="13" font-weight="500" fill="#7d5a00" dy="4.55">Redirect to /login?redirect=/checkout</text>
+</g>
+<g class="node" data-id="I" data-label="Show generic error
+Show retry button" data-shape="rectangle">
+  <rect x="775.9599999999999" y="687.982" width="157.54600000000002" height="53.800000000000004" rx="0" ry="0" fill="#f8d7da" stroke="#dc3545" stroke-width="0.75" />
+  <text x="854.733" y="714.882" text-anchor="middle" font-size="13" font-weight="500" fill="#721c24"><tspan x="854.733" dy="-3.9000000000000012">Show generic error</tspan><tspan x="854.733" dy="16.900000000000002">Show retry button</tspan></text>
+</g>
+<g class="node" data-id="J" data-label="Request in-flight" data-shape="rectangle">
+  <rect x="956.1424999999999" y="502.02250000000004" width="133.834" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1023.0595" y="520.4725000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Request in-flight</text>
+</g>
+<g class="node" data-id="K" data-label="Button disabled + spinner" data-shape="rectangle">
+  <rect x="928.3549999999999" y="591.082" width="189.409" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1023.0594999999998" y="609.532" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Button disabled + spinner</text>
+</g>
+<g class="node" data-id="L" data-label="Promo code submitted" data-shape="rectangle">
+  <rect x="1154.8" y="424.963" width="169.402" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1239.501" y="443.413" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Promo code submitted</text>
+</g>
+<g class="node" data-id="M" data-label="Promo API response" data-shape="diamond">
+  <polygon points="1239.501,502.02250000000004 1333.238,595.7595 1239.501,689.4965 1145.764,595.7595" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1239.501" y="595.7595" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Promo API response</text>
+</g>
+<g class="node" data-id="N" data-label="Discount applied
+Total updates" data-shape="rectangle">
+  <rect x="1078.329" y="801.637" width="139.02100000000002" height="53.800000000000004" rx="0" ry="0" fill="#d4edda" stroke="#28a745" stroke-width="0.75" />
+  <text x="1147.8395" y="828.5369999999999" text-anchor="middle" font-size="13" font-weight="500" fill="#1a5c2a"><tspan x="1147.8395" dy="-3.9000000000000012">Discount applied</tspan><tspan x="1147.8395" dy="16.900000000000002">Total updates</tspan></text>
+</g>
+<g class="node" data-id="O" data-label="Inline error under field" data-shape="rectangle">
+  <rect x="1245.35" y="801.637" width="171.62499999999997" height="36.900000000000006" rx="0" ry="0" fill="#f8d7da" stroke="#dc3545" stroke-width="0.75" />
+  <text x="1331.1625" y="820.087" text-anchor="middle" font-size="13" font-weight="500" fill="#721c24" dy="4.55">Inline error under field</text>
+</g>
+</svg></div><p><strong>Legend:</strong> 🟢 Success outcome (E2E or integration success path) · 🟡 Redirect outcome · 🔴 Error outcome shown to user</p>
+<hr>
+<h3>Test implementations</h3>
+<h4>Scenario 1 — Happy path (E2E · Playwright)</h4>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// tests/e2e/checkout.spec.ts</span></span>
+<span class="line"><span style="color:#6F42C1">test</span><span style="color:#24292E">(</span><span style="color:#032F62">'user completes checkout successfully'</span><span style="color:#24292E">, </span><span style="color:#D73A49">async</span><span style="color:#24292E"> ({ </span><span style="color:#E36209">page</span><span style="color:#24292E"> }) </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> page.</span><span style="color:#6F42C1">goto</span><span style="color:#24292E">(</span><span style="color:#032F62">'/checkout'</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> page.</span><span style="color:#6F42C1">getByLabel</span><span style="color:#24292E">(</span><span style="color:#032F62">'Card number'</span><span style="color:#24292E">).</span><span style="color:#6F42C1">fill</span><span style="color:#24292E">(</span><span style="color:#032F62">'4242424242424242'</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> page.</span><span style="color:#6F42C1">getByLabel</span><span style="color:#24292E">(</span><span style="color:#032F62">'Expiry'</span><span style="color:#24292E">).</span><span style="color:#6F42C1">fill</span><span style="color:#24292E">(</span><span style="color:#032F62">'12/28'</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> page.</span><span style="color:#6F42C1">getByLabel</span><span style="color:#24292E">(</span><span style="color:#032F62">'CVC'</span><span style="color:#24292E">).</span><span style="color:#6F42C1">fill</span><span style="color:#24292E">(</span><span style="color:#032F62">'123'</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> page.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'button'</span><span style="color:#24292E">, { name: </span><span style="color:#032F62">'Place order'</span><span style="color:#24292E"> }).</span><span style="color:#6F42C1">click</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#6F42C1"> expect</span><span style="color:#24292E">(page).</span><span style="color:#6F42C1">toHaveURL</span><span style="color:#24292E">(</span><span style="color:#032F62">'/order-confirmation'</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#6F42C1"> expect</span><span style="color:#24292E">(page.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'heading'</span><span style="color:#24292E">, { name: </span><span style="color:#032F62">'Order confirmed'</span><span style="color:#24292E"> })).</span><span style="color:#6F42C1">toBeVisible</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">});</span></span></code></pre><hr>
+<h4>Scenario 2 — Payment declined (Integration · Vitest + RTL + MSW)</h4>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// src/features/checkout/Checkout.test.tsx</span></span>
+<span class="line"><span style="color:#6F42C1">test</span><span style="color:#24292E">(</span><span style="color:#032F62">'shows a declined error when the card is rejected'</span><span style="color:#24292E">, </span><span style="color:#D73A49">async</span><span style="color:#24292E"> () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">  server.</span><span style="color:#6F42C1">use</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#24292E">    http.</span><span style="color:#6F42C1">post</span><span style="color:#24292E">(</span><span style="color:#032F62">'/api/orders'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span></span>
+<span class="line"><span style="color:#24292E">      HttpResponse.</span><span style="color:#6F42C1">json</span><span style="color:#24292E">({ message: </span><span style="color:#032F62">'Your card was declined.'</span><span style="color:#24292E"> }, { status: </span><span style="color:#005CC5">402</span><span style="color:#24292E"> })</span></span>
+<span class="line"><span style="color:#24292E">    )</span></span>
+<span class="line"><span style="color:#24292E">  );</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  render</span><span style="color:#24292E">(&#x3C;</span><span style="color:#6F42C1">Checkout</span><span style="color:#24292E"> />, { wrapper: Providers });</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> userEvent.</span><span style="color:#6F42C1">click</span><span style="color:#24292E">(screen.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'button'</span><span style="color:#24292E">, { name: </span><span style="color:#032F62">'Place order'</span><span style="color:#24292E"> }));</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  expect</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#D73A49">    await</span><span style="color:#24292E"> screen.</span><span style="color:#6F42C1">findByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'alert'</span><span style="color:#24292E">, { name:</span><span style="color:#032F62"> /card was declined/</span><span style="color:#D73A49">i</span><span style="color:#24292E"> })</span></span>
+<span class="line"><span style="color:#24292E">  ).</span><span style="color:#6F42C1">toBeInTheDocument</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">  // User stays on checkout — no redirect</span></span>
+<span class="line"><span style="color:#6F42C1">  expect</span><span style="color:#24292E">(mockNavigate).not.</span><span style="color:#6F42C1">toHaveBeenCalled</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">});</span></span></code></pre><hr>
+<h4>Scenario 4 — Session expired, redirect to login (Integration)</h4>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">test</span><span style="color:#24292E">(</span><span style="color:#032F62">'redirects to login with return path when session has expired'</span><span style="color:#24292E">, </span><span style="color:#D73A49">async</span><span style="color:#24292E"> () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">  server.</span><span style="color:#6F42C1">use</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#24292E">    http.</span><span style="color:#6F42C1">post</span><span style="color:#24292E">(</span><span style="color:#032F62">'/api/orders'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span></span>
+<span class="line"><span style="color:#24292E">      HttpResponse.</span><span style="color:#6F42C1">json</span><span style="color:#24292E">({ message: </span><span style="color:#032F62">'Unauthorized'</span><span style="color:#24292E"> }, { status: </span><span style="color:#005CC5">401</span><span style="color:#24292E"> })</span></span>
+<span class="line"><span style="color:#24292E">    )</span></span>
+<span class="line"><span style="color:#24292E">  );</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  render</span><span style="color:#24292E">(&#x3C;</span><span style="color:#6F42C1">Checkout</span><span style="color:#24292E"> />, { wrapper: Providers });</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> userEvent.</span><span style="color:#6F42C1">click</span><span style="color:#24292E">(screen.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'button'</span><span style="color:#24292E">, { name: </span><span style="color:#032F62">'Place order'</span><span style="color:#24292E"> }));</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#6F42C1"> waitFor</span><span style="color:#24292E">(() </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">    expect</span><span style="color:#24292E">(mockNavigate).</span><span style="color:#6F42C1">toHaveBeenCalledWith</span><span style="color:#24292E">(</span><span style="color:#032F62">'/login?redirect=/checkout'</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">  });</span></span>
+<span class="line"><span style="color:#24292E">});</span></span></code></pre><hr>
+<h4>Scenario 5 — Empty cart redirects (Integration)</h4>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">test</span><span style="color:#24292E">(</span><span style="color:#032F62">'redirects to cart page when cart is empty'</span><span style="color:#24292E">, </span><span style="color:#D73A49">async</span><span style="color:#24292E"> () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6A737D">  // Render with empty cart state</span></span>
+<span class="line"><span style="color:#6F42C1">  render</span><span style="color:#24292E">(&#x3C;</span><span style="color:#6F42C1">Checkout</span><span style="color:#24292E"> />, {</span></span>
+<span class="line"><span style="color:#6F42C1">    wrapper</span><span style="color:#24292E">: ({ </span><span style="color:#E36209">children</span><span style="color:#24292E"> }) </span><span style="color:#D73A49">=></span><span style="color:#24292E"> (</span></span>
+<span class="line"><span style="color:#D73A49">      &#x3C;</span><span style="color:#24292E">Providers initialCart</span><span style="color:#D73A49">=</span><span style="color:#24292E">{[]}></span></span>
+<span class="line"><span style="color:#24292E">        {children}</span></span>
+<span class="line"><span style="color:#24292E">      &#x3C;/Providers></span></span>
+<span class="line"><span style="color:#24292E">    ),</span></span>
+<span class="line"><span style="color:#24292E">  });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">  await waitFor(() => {</span></span>
+<span class="line"><span style="color:#24292E">    expect(mockNavigate).toHaveBeenCalledWith('/cart');</span></span>
+<span class="line"><span style="color:#24292E">  });</span></span>
+<span class="line"><span style="color:#24292E">});</span></span></code></pre><hr>
+<h4>Scenario 8 — Loading state (Integration)</h4>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">test</span><span style="color:#24292E">(</span><span style="color:#032F62">'disables submit button and shows spinner while order is processing'</span><span style="color:#24292E">, </span><span style="color:#D73A49">async</span><span style="color:#24292E"> () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">  server.</span><span style="color:#6F42C1">use</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#24292E">    http.</span><span style="color:#6F42C1">post</span><span style="color:#24292E">(</span><span style="color:#032F62">'/api/orders'</span><span style="color:#24292E">, </span><span style="color:#D73A49">async</span><span style="color:#24292E"> () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">      await</span><span style="color:#6F42C1"> delay</span><span style="color:#24292E">(</span><span style="color:#005CC5">200</span><span style="color:#24292E">); </span><span style="color:#6A737D">// Simulate network latency</span></span>
+<span class="line"><span style="color:#D73A49">      return</span><span style="color:#24292E"> HttpResponse.</span><span style="color:#6F42C1">json</span><span style="color:#24292E">({ orderId: </span><span style="color:#032F62">'abc123'</span><span style="color:#24292E"> });</span></span>
+<span class="line"><span style="color:#24292E">    })</span></span>
+<span class="line"><span style="color:#24292E">  );</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  render</span><span style="color:#24292E">(&#x3C;</span><span style="color:#6F42C1">Checkout</span><span style="color:#24292E"> />, { wrapper: Providers });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">  const</span><span style="color:#005CC5"> button</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> screen.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'button'</span><span style="color:#24292E">, { name: </span><span style="color:#032F62">'Place order'</span><span style="color:#24292E"> });</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> userEvent.</span><span style="color:#6F42C1">click</span><span style="color:#24292E">(button);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">  // Mid-request: button should be disabled with loading text</span></span>
+<span class="line"><span style="color:#6F42C1">  expect</span><span style="color:#24292E">(screen.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'button'</span><span style="color:#24292E">, { name:</span><span style="color:#032F62"> /processing/</span><span style="color:#D73A49">i</span><span style="color:#24292E"> })).</span><span style="color:#6F42C1">toBeDisabled</span><span style="color:#24292E">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">  // After response: button returns to normal</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#6F42C1"> waitFor</span><span style="color:#24292E">(() </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">    expect</span><span style="color:#24292E">(screen.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'button'</span><span style="color:#24292E">, { name: </span><span style="color:#032F62">'Place order'</span><span style="color:#24292E"> })).not.</span><span style="color:#6F42C1">toBeDisabled</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">  });</span></span>
+<span class="line"><span style="color:#24292E">});</span></span></code></pre><hr>
+<h4>Scenario 6 — Invalid promo code (Integration)</h4>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">test</span><span style="color:#24292E">(</span><span style="color:#032F62">'shows inline error under promo field when code is invalid'</span><span style="color:#24292E">, </span><span style="color:#D73A49">async</span><span style="color:#24292E"> () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">  server.</span><span style="color:#6F42C1">use</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#24292E">    http.</span><span style="color:#6F42C1">post</span><span style="color:#24292E">(</span><span style="color:#032F62">'/api/apply-promo'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span></span>
+<span class="line"><span style="color:#24292E">      HttpResponse.</span><span style="color:#6F42C1">json</span><span style="color:#24292E">({ message: </span><span style="color:#032F62">'Promo code not found.'</span><span style="color:#24292E"> }, { status: </span><span style="color:#005CC5">400</span><span style="color:#24292E"> })</span></span>
+<span class="line"><span style="color:#24292E">    )</span></span>
+<span class="line"><span style="color:#24292E">  );</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  render</span><span style="color:#24292E">(&#x3C;</span><span style="color:#6F42C1">Checkout</span><span style="color:#24292E"> />, { wrapper: Providers });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> userEvent.</span><span style="color:#6F42C1">type</span><span style="color:#24292E">(screen.</span><span style="color:#6F42C1">getByLabelText</span><span style="color:#24292E">(</span><span style="color:#032F62">'Promo code'</span><span style="color:#24292E">), </span><span style="color:#032F62">'BADCODE'</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">  await</span><span style="color:#24292E"> userEvent.</span><span style="color:#6F42C1">click</span><span style="color:#24292E">(screen.</span><span style="color:#6F42C1">getByRole</span><span style="color:#24292E">(</span><span style="color:#032F62">'button'</span><span style="color:#24292E">, { name: </span><span style="color:#032F62">'Apply'</span><span style="color:#24292E"> }));</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  expect</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#D73A49">    await</span><span style="color:#24292E"> screen.</span><span style="color:#6F42C1">findByText</span><span style="color:#24292E">(</span><span style="color:#032F62">'Promo code not found.'</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#24292E">  ).</span><span style="color:#6F42C1">toBeInTheDocument</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#24292E">});</span></span></code></pre><hr>
+<h4>Scenarios 9 &amp; 10 — Pure logic (Unit · Vitest)</h4>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// src/utils/orderCalculations.test.ts</span></span>
+<span class="line"><span style="color:#6F42C1">describe</span><span style="color:#24292E">(</span><span style="color:#032F62">'calculateOrderTotal'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">  it</span><span style="color:#24292E">(</span><span style="color:#032F62">'sums subtotal, tax, and shipping correctly'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">    expect</span><span style="color:#24292E">(</span><span style="color:#6F42C1">calculateOrderTotal</span><span style="color:#24292E">({</span></span>
+<span class="line"><span style="color:#24292E">      subtotal: </span><span style="color:#005CC5">100</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">      taxRate: </span><span style="color:#005CC5">0.1</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">      shippingCost: </span><span style="color:#005CC5">5</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    })).</span><span style="color:#6F42C1">toBe</span><span style="color:#24292E">(</span><span style="color:#005CC5">115</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">  });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  it</span><span style="color:#24292E">(</span><span style="color:#032F62">'applies a percentage discount before calculating tax'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">    expect</span><span style="color:#24292E">(</span><span style="color:#6F42C1">calculateOrderTotal</span><span style="color:#24292E">({</span></span>
+<span class="line"><span style="color:#24292E">      subtotal: </span><span style="color:#005CC5">100</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">      discountPercent: </span><span style="color:#005CC5">20</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">      taxRate: </span><span style="color:#005CC5">0.1</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">      shippingCost: </span><span style="color:#005CC5">5</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    })).</span><span style="color:#6F42C1">toBe</span><span style="color:#24292E">(</span><span style="color:#005CC5">93</span><span style="color:#24292E">); </span><span style="color:#6A737D">// (100 - 20) * 1.1 + 5</span></span>
+<span class="line"><span style="color:#24292E">  });</span></span>
+<span class="line"><span style="color:#24292E">});</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">describe</span><span style="color:#24292E">(</span><span style="color:#032F62">'isValidPromoFormat'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">  it</span><span style="color:#24292E">(</span><span style="color:#032F62">'rejects codes shorter than 4 characters'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">    expect</span><span style="color:#24292E">(</span><span style="color:#6F42C1">isValidPromoFormat</span><span style="color:#24292E">(</span><span style="color:#032F62">'AB'</span><span style="color:#24292E">)).</span><span style="color:#6F42C1">toBe</span><span style="color:#24292E">(</span><span style="color:#005CC5">false</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">  });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  it</span><span style="color:#24292E">(</span><span style="color:#032F62">'rejects empty strings'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">    expect</span><span style="color:#24292E">(</span><span style="color:#6F42C1">isValidPromoFormat</span><span style="color:#24292E">(</span><span style="color:#032F62">''</span><span style="color:#24292E">)).</span><span style="color:#6F42C1">toBe</span><span style="color:#24292E">(</span><span style="color:#005CC5">false</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">  });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">  it</span><span style="color:#24292E">(</span><span style="color:#032F62">'accepts a valid alphanumeric code'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">    expect</span><span style="color:#24292E">(</span><span style="color:#6F42C1">isValidPromoFormat</span><span style="color:#24292E">(</span><span style="color:#032F62">'SAVE20'</span><span style="color:#24292E">)).</span><span style="color:#6F42C1">toBe</span><span style="color:#24292E">(</span><span style="color:#005CC5">true</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">  });</span></span>
+<span class="line"><span style="color:#24292E">});</span></span></code></pre><hr>
+<h3>The planning habit</h3>
+<p>Before writing a single line of test code for any feature, fill in this table:</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>| Scenario | What triggers it | Expected outcome | Tier |</span></span></code></pre><p>If you find yourself writing more than 2–3 E2E tests for a single feature, that&#39;s a signal most of them should be integration tests instead.</p>
+<hr>
+<h2>8. Keeping MSW Mocks in Sync with the Backend API</h2>
+<p>This is one of the most common failure modes for integration tests: the mock drifts from reality, tests stay green, but production breaks.</p>
+<h3>The core problem</h3>
+<table>
+<thead>
+<tr>
+<th>Stack</th>
+<th>How drift is prevented</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Full TypeScript monorepo</td>
+<td>Shared type definitions. Frontend won&#39;t compile if the API contract changes.</td>
+</tr>
+<tr>
+<td><strong>Go backend + React TS</strong></td>
+<td>No shared types. Drift is invisible until runtime. <strong>This is our situation.</strong></td>
+</tr>
+</tbody></table>
+<p>The solution is to treat the API schema as the single source of truth and generate TypeScript types from it automatically. When the Go backend changes the schema, the frontend types regenerate — and if the frontend code or MSW handlers don&#39;t match, TypeScript will refuse to compile.</p>
+<hr>
+<h3>Recommended approach: OpenAPI as the contract</h3>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span>Go backend  ──generates──▶  openapi.yaml  ──generates──▶  TypeScript types</span></span>
+<span class="line"><span>                                │                                │</span></span>
+<span class="line"><span>                                │                                ▼</span></span>
+<span class="line"><span>                                │                        MSW handlers typed</span></span>
+<span class="line"><span>                                │                        against these types</span></span>
+<span class="line"><span>                                ▼</span></span>
+<span class="line"><span>                        Single source of truth</span></span>
+<span class="line"><span>                        committed to the repo</span></span></code></pre><h4>Step 1 — Generate an OpenAPI spec from the Go backend</h4>
+<p>Use <a href="https://github.com/swaggo/swag"><code>swaggo/swag</code></a> to annotate your Go handlers and generate <code>openapi.yaml</code>:</p>
+<pre><code class="language-go">// In your Go handler:
+// @Summary      Log in a user
+// @Accept       json
+// @Produce      json
+// @Param        body  body      LoginRequest  true  "Credentials"
+// @Success      200   {object}  LoginResponse
+// @Failure      400   {object}  ErrorResponse
+// @Router       /api/login [post]
+func (h *Handler) Login(w http.ResponseWriter, r *http.Request) { ... }</code></pre><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D"># Run in the Go repo to regenerate the spec</span></span>
+<span class="line"><span style="color:#6F42C1">swag</span><span style="color:#032F62"> init</span><span style="color:#005CC5"> --output</span><span style="color:#032F62"> ./docs</span></span></code></pre><p>The output (<code>docs/swagger.yaml</code>) is committed to the repo and becomes the contract both sides agree on.</p>
+<h4>Step 2 — Generate TypeScript types from the spec</h4>
+<p>In the frontend repo, use <a href="https://github.com/openapi-ts/openapi-typescript"><code>openapi-typescript</code></a> to generate types:</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6F42C1">npm</span><span style="color:#032F62"> install</span><span style="color:#005CC5"> -D</span><span style="color:#032F62"> openapi-typescript</span></span>
+<span class="line"><span style="color:#6F42C1">npx</span><span style="color:#032F62"> openapi-typescript</span><span style="color:#032F62"> ../backend/docs/swagger.yaml</span><span style="color:#005CC5"> -o</span><span style="color:#032F62"> src/types/api.generated.ts</span></span></code></pre><p>Add this as an npm script so it&#39;s easy to re-run:</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// package.json</span></span>
+<span class="line"><span style="color:#24292E">{</span></span>
+<span class="line"><span style="color:#005CC5">  "scripts"</span><span style="color:#24292E">: {</span></span>
+<span class="line"><span style="color:#005CC5">    "generate:api-types"</span><span style="color:#24292E">: </span><span style="color:#032F62">"openapi-typescript ../backend/docs/swagger.yaml -o src/types/api.generated.ts"</span></span>
+<span class="line"><span style="color:#24292E">  }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre><p>The generated file looks like this (you never edit it manually):</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// src/types/api.generated.ts  ← auto-generated, do not edit</span></span>
+<span class="line"><span style="color:#D73A49">export</span><span style="color:#D73A49"> interface</span><span style="color:#6F42C1"> paths</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#032F62">  "/api/login"</span><span style="color:#D73A49">:</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#E36209">    post</span><span style="color:#D73A49">:</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#E36209">      requestBody</span><span style="color:#D73A49">:</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#E36209">        content</span><span style="color:#D73A49">:</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#032F62">          "application/json"</span><span style="color:#D73A49">:</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#E36209">            email</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> string</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#E36209">            password</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> string</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">          };</span></span>
+<span class="line"><span style="color:#24292E">        };</span></span>
+<span class="line"><span style="color:#24292E">      };</span></span>
+<span class="line"><span style="color:#E36209">      responses</span><span style="color:#D73A49">:</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#005CC5">        200</span><span style="color:#D73A49">:</span><span style="color:#24292E"> { </span><span style="color:#E36209">content</span><span style="color:#D73A49">:</span><span style="color:#24292E"> { </span><span style="color:#032F62">"application/json"</span><span style="color:#D73A49">:</span><span style="color:#24292E"> { </span><span style="color:#E36209">token</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> string</span><span style="color:#24292E">; </span><span style="color:#E36209">userId</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> string</span><span style="color:#24292E"> } } };</span></span>
+<span class="line"><span style="color:#005CC5">        400</span><span style="color:#D73A49">:</span><span style="color:#24292E"> { </span><span style="color:#E36209">content</span><span style="color:#D73A49">:</span><span style="color:#24292E"> { </span><span style="color:#032F62">"application/json"</span><span style="color:#D73A49">:</span><span style="color:#24292E"> { </span><span style="color:#E36209">message</span><span style="color:#D73A49">:</span><span style="color:#005CC5"> string</span><span style="color:#24292E"> } } };</span></span>
+<span class="line"><span style="color:#24292E">      };</span></span>
+<span class="line"><span style="color:#24292E">    };</span></span>
+<span class="line"><span style="color:#24292E">  };</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre><h4>Step 3 — Type your MSW handlers against generated types</h4>
+<p>Use <a href="https://github.com/openapi-ts/openapi-typescript/tree/main/packages/openapi-fetch"><code>openapi-fetch</code></a> as your fetch client, which binds directly to the generated types. Then type your MSW handlers against the same source:</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// src/mocks/handlers.ts</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> { http, HttpResponse } </span><span style="color:#D73A49">from</span><span style="color:#032F62"> 'msw'</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#D73A49"> type</span><span style="color:#24292E"> { paths } </span><span style="color:#D73A49">from</span><span style="color:#032F62"> '../types/api.generated'</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">// Extract the exact response shape from the generated types</span></span>
+<span class="line"><span style="color:#D73A49">type</span><span style="color:#6F42C1"> LoginSuccess</span><span style="color:#D73A49"> =</span><span style="color:#6F42C1"> paths</span><span style="color:#24292E">[</span><span style="color:#032F62">'/api/login'</span><span style="color:#24292E">][</span><span style="color:#032F62">'post'</span><span style="color:#24292E">][</span><span style="color:#032F62">'responses'</span><span style="color:#24292E">][</span><span style="color:#005CC5">200</span><span style="color:#24292E">][</span><span style="color:#032F62">'content'</span><span style="color:#24292E">][</span><span style="color:#032F62">'application/json'</span><span style="color:#24292E">];</span></span>
+<span class="line"><span style="color:#D73A49">type</span><span style="color:#6F42C1"> LoginError</span><span style="color:#D73A49">   =</span><span style="color:#6F42C1"> paths</span><span style="color:#24292E">[</span><span style="color:#032F62">'/api/login'</span><span style="color:#24292E">][</span><span style="color:#032F62">'post'</span><span style="color:#24292E">][</span><span style="color:#032F62">'responses'</span><span style="color:#24292E">][</span><span style="color:#005CC5">400</span><span style="color:#24292E">][</span><span style="color:#032F62">'content'</span><span style="color:#24292E">][</span><span style="color:#032F62">'application/json'</span><span style="color:#24292E">];</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">export</span><span style="color:#D73A49"> const</span><span style="color:#005CC5"> handlers</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> [</span></span>
+<span class="line"><span style="color:#24292E">  http.</span><span style="color:#6F42C1">post</span><span style="color:#24292E">(</span><span style="color:#032F62">'/api/login'</span><span style="color:#24292E">, ()</span><span style="color:#D73A49">:</span><span style="color:#6F42C1"> HttpResponse</span><span style="color:#D73A49"> =></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">    const</span><span style="color:#005CC5"> body</span><span style="color:#D73A49">:</span><span style="color:#6F42C1"> LoginSuccess</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> { token: </span><span style="color:#032F62">'mock-token'</span><span style="color:#24292E">, userId: </span><span style="color:#032F62">'123'</span><span style="color:#24292E"> };</span></span>
+<span class="line"><span style="color:#D73A49">    return</span><span style="color:#24292E"> HttpResponse.</span><span style="color:#6F42C1">json</span><span style="color:#24292E">(body, { status: </span><span style="color:#005CC5">200</span><span style="color:#24292E"> });</span></span>
+<span class="line"><span style="color:#24292E">  }),</span></span>
+<span class="line"><span style="color:#24292E">];</span></span></code></pre><p>Now if the Go team renames <code>token</code> to <code>accessToken</code> in the spec, you regenerate the types, and the MSW handler above <strong>fails to compile</strong> — forcing a fix before the code ever ships.</p>
+<hr>
+<h3>Enforcing this in CI</h3>
+<p>The key risk is that someone changes the Go backend, regenerates the spec, but forgets to regenerate the frontend types. Catch this automatically:</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D"># .github/workflows/check-api-types.yml</span></span>
+<span class="line"><span style="color:#24292E">- </span><span style="color:#22863A">name</span><span style="color:#24292E">: </span><span style="color:#032F62">Regenerate API types</span></span>
+<span class="line"><span style="color:#22863A">  run</span><span style="color:#24292E">: </span><span style="color:#032F62">npm run generate:api-types</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">- </span><span style="color:#22863A">name</span><span style="color:#24292E">: </span><span style="color:#032F62">Fail if generated types are out of date</span></span>
+<span class="line"><span style="color:#22863A">  run</span><span style="color:#24292E">: </span><span style="color:#D73A49">|</span></span>
+<span class="line"><span style="color:#032F62">    git diff --exit-code src/types/api.generated.ts \</span></span>
+<span class="line"><span style="color:#032F62">    || (echo "API types are out of date. Run 'npm run generate:api-types' and commit." &#x26;&#x26; exit 1)</span></span></code></pre><p>This CI step regenerates the types and checks whether the committed file matches. If the backend spec changed but the frontend types weren&#39;t updated, the build fails with a clear message.</p>
+<hr>
+<h3>Lightweight alternative: Zod schemas as the contract</h3>
+<p>If setting up OpenAPI feels like too much overhead for your current stage, a practical middle ground is to define <strong>Zod schemas</strong> for each API response in the frontend and use them to validate both your MSW mock responses and runtime API responses.</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// src/schemas/auth.ts</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> { z } </span><span style="color:#D73A49">from</span><span style="color:#032F62"> 'zod'</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">export</span><span style="color:#D73A49"> const</span><span style="color:#005CC5"> LoginResponseSchema</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> z.</span><span style="color:#6F42C1">object</span><span style="color:#24292E">({</span></span>
+<span class="line"><span style="color:#24292E">  token: z.</span><span style="color:#6F42C1">string</span><span style="color:#24292E">(),</span></span>
+<span class="line"><span style="color:#24292E">  userId: z.</span><span style="color:#6F42C1">string</span><span style="color:#24292E">(),</span></span>
+<span class="line"><span style="color:#24292E">});</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">export</span><span style="color:#D73A49"> const</span><span style="color:#005CC5"> LoginErrorSchema</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> z.</span><span style="color:#6F42C1">object</span><span style="color:#24292E">({</span></span>
+<span class="line"><span style="color:#24292E">  message: z.</span><span style="color:#6F42C1">string</span><span style="color:#24292E">(),</span></span>
+<span class="line"><span style="color:#24292E">});</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">export</span><span style="color:#D73A49"> type</span><span style="color:#6F42C1"> LoginResponse</span><span style="color:#D73A49"> =</span><span style="color:#6F42C1"> z</span><span style="color:#24292E">.</span><span style="color:#6F42C1">infer</span><span style="color:#24292E">&#x3C;</span><span style="color:#D73A49">typeof</span><span style="color:#24292E"> LoginResponseSchema>;</span></span></code></pre><p>Use the schema in your API layer to validate real responses at runtime:</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// src/api/auth.ts</span></span>
+<span class="line"><span style="color:#D73A49">const</span><span style="color:#005CC5"> raw</span><span style="color:#D73A49"> =</span><span style="color:#D73A49"> await</span><span style="color:#6F42C1"> fetch</span><span style="color:#24292E">(</span><span style="color:#032F62">'/api/login'</span><span style="color:#24292E">, { </span><span style="color:#D73A49">...</span><span style="color:#24292E"> }).</span><span style="color:#6F42C1">then</span><span style="color:#24292E">(</span><span style="color:#E36209">r</span><span style="color:#D73A49"> =></span><span style="color:#24292E"> r.</span><span style="color:#6F42C1">json</span><span style="color:#24292E">());</span></span>
+<span class="line"><span style="color:#D73A49">const</span><span style="color:#005CC5"> parsed</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> LoginResponseSchema.</span><span style="color:#6F42C1">safeParse</span><span style="color:#24292E">(raw);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">if</span><span style="color:#24292E"> (</span><span style="color:#D73A49">!</span><span style="color:#24292E">parsed.success) {</span></span>
+<span class="line"><span style="color:#6A737D">  // The backend changed shape — this surfaces immediately in dev/staging</span></span>
+<span class="line"><span style="color:#24292E">  console.</span><span style="color:#6F42C1">error</span><span style="color:#24292E">(</span><span style="color:#032F62">'API contract mismatch:'</span><span style="color:#24292E">, parsed.error);</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre><p>Use the same schema in your MSW handler to keep the mock honest:</p>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// src/mocks/handlers.ts</span></span>
+<span class="line"><span style="color:#D73A49">import</span><span style="color:#24292E"> { LoginResponseSchema } </span><span style="color:#D73A49">from</span><span style="color:#032F62"> '../schemas/auth'</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">http.</span><span style="color:#6F42C1">post</span><span style="color:#24292E">(</span><span style="color:#032F62">'/api/login'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">  const</span><span style="color:#005CC5"> body</span><span style="color:#D73A49">:</span><span style="color:#6F42C1"> z</span><span style="color:#24292E">.</span><span style="color:#6F42C1">infer</span><span style="color:#24292E">&#x3C;</span><span style="color:#D73A49">typeof</span><span style="color:#24292E"> LoginResponseSchema> </span><span style="color:#D73A49">=</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">    token: </span><span style="color:#032F62">'mock-token'</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    userId: </span><span style="color:#032F62">'123'</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">  };</span></span>
+<span class="line"><span style="color:#D73A49">  return</span><span style="color:#24292E"> HttpResponse.</span><span style="color:#6F42C1">json</span><span style="color:#24292E">(body);</span></span>
+<span class="line"><span style="color:#24292E">});</span></span></code></pre><p>The tradeoff: Zod schemas are still hand-written and can drift. They rely on developers updating them when the backend changes, whereas the OpenAPI approach makes that a CI failure. Use Zod as a stepping stone; migrate to OpenAPI codegen as the team and API stabilise.</p>
+<hr>
+<h3>Which approach to use?</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>OpenAPI codegen</th>
+<th>Zod schemas</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Drift prevention</strong></td>
+<td>Automatic — CI fails if out of sync</td>
+<td>Manual — relies on developer discipline</td>
+</tr>
+<tr>
+<td><strong>Setup cost</strong></td>
+<td>Medium (needs swaggo + openapi-typescript)</td>
+<td>Low (just install zod)</td>
+</tr>
+<tr>
+<td><strong>Runtime validation</strong></td>
+<td>Not built-in (add separately)</td>
+<td>Yes, built-in via <code>safeParse</code></td>
+</tr>
+<tr>
+<td><strong>Best for</strong></td>
+<td>Stable, documented APIs with multiple consumers</td>
+<td>Early-stage APIs or small teams</td>
+</tr>
+</tbody></table>
+<p>Start with Zod if the API is still in flux. Graduate to OpenAPI codegen once endpoints stabilise.</p>
+<hr>
+<h3>MSW handler override pattern</h3>
+<pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">// In your test file — override a handler just for one test</span></span>
+<span class="line"><span style="color:#24292E">server.</span><span style="color:#6F42C1">use</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#24292E">  http.</span><span style="color:#6F42C1">get</span><span style="color:#24292E">(</span><span style="color:#032F62">'/api/user'</span><span style="color:#24292E">, () </span><span style="color:#D73A49">=></span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#D73A49">    return</span><span style="color:#24292E"> HttpResponse.</span><span style="color:#6F42C1">json</span><span style="color:#24292E">({ error: </span><span style="color:#032F62">'Unauthorized'</span><span style="color:#24292E"> }, { status: </span><span style="color:#005CC5">401</span><span style="color:#24292E"> });</span></span>
+<span class="line"><span style="color:#24292E">  })</span></span>
+<span class="line"><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#6A737D">// server.resetHandlers() in afterEach restores the default automatically</span></span></code></pre>
+                </article>
+            </main>
+
+            <footer class="footer">
+                <small>
+                    &copy; <time>2026</time>. All rights reserved.
+                </small>
+            </footer>
+        </div>
+        <div id="lightbox" class="lightbox">
+            <button class="lightbox-close" aria-label="Close">&times;</button>
+            <div class="lightbox-content"></div>
+        </div>
+        <script>
+            // Lightbox
+            const lightbox = document.getElementById("lightbox");
+            const lightboxContent = lightbox.querySelector(".lightbox-content");
+            const lightboxClose = lightbox.querySelector(".lightbox-close");
+
+            function openLightbox(svg) {
+                lightboxContent.innerHTML = svg.outerHTML;
+                lightbox.classList.add("open");
+                document.body.style.overflow = "hidden";
+            }
+
+            function closeLightbox() {
+                lightbox.classList.remove("open");
+                document.body.style.overflow = "";
+            }
+
+            document.querySelectorAll(".mermaid").forEach((pre) => {
+                pre.style.cursor = "pointer";
+                pre.style.transition = "opacity 0.2s";
+                pre.addEventListener("mouseenter", () => (pre.style.opacity = "0.8"));
+                pre.addEventListener("mouseleave", () => (pre.style.opacity = "1"));
+                pre.addEventListener("click", function () {
+                    const svg = this.querySelector("svg");
+                    if (svg) openLightbox(svg);
+                });
+            });
+
+            lightbox.addEventListener("click", function (e) {
+                if (e.target === lightbox) closeLightbox();
+            });
+            lightboxClose.addEventListener("click", closeLightbox);
+            document.addEventListener("keydown", function (e) {
+                if (e.key === "Escape") closeLightbox();
+            });
+
+            // Table of Contents
+            const tocWrapper = document.querySelector(".toc-wrapper");
+            const tocTrigger = document.querySelector(".toc-trigger");
+            const tocDropdown = document.querySelector(".toc-dropdown");
+            const tocList = document.querySelector(".toc-list");
+            const tocCurrent = document.querySelector(".toc-current");
+            const progressBar = document.querySelector(".progress-bar");
+            const article = document.querySelector("article.post");
+            const headings = article ? article.querySelectorAll("h1, h2, h3") : [];
+
+            // Build TOC
+            if (headings.length > 0 && tocList) {
+                headings.forEach((h, i) => {
+                    const id = `heading-${i}`;
+                    h.id = id;
+                    const li = document.createElement("li");
+                    li.className = `toc-item toc-${h.tagName.toLowerCase()}`;
+                    const a = document.createElement("a");
+                    a.href = `#${id}`;
+                    a.textContent = h.textContent;
+                    a.addEventListener("click", (e) => {
+                        e.preventDefault();
+                        h.scrollIntoView({ behavior: "smooth" });
+                        tocDropdown.classList.remove("open");
+                    });
+                    li.appendChild(a);
+                    tocList.appendChild(li);
+                });
+            }
+
+            // Toggle dropdown
+            if (tocTrigger && tocDropdown) {
+                tocTrigger.addEventListener("click", () => {
+                    tocDropdown.classList.toggle("open");
+                });
+                document.addEventListener("click", (e) => {
+                    if (!tocWrapper.contains(e.target)) {
+                        tocDropdown.classList.remove("open");
+                    }
+                });
+            }
+
+            // Progress and current heading
+            const circumference = 2 * Math.PI * 10;
+            progressBar.style.strokeDasharray = circumference;
+
+            function updateProgress() {
+                const scrollTop = window.scrollY;
+                const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                const progress = docHeight > 0 ? scrollTop / docHeight : 0;
+                const offset = circumference - progress * circumference;
+                progressBar.style.strokeDashoffset = offset;
+
+                // Find current heading
+                let current = headings[0];
+                for (const h of headings) {
+                    const rect = h.getBoundingClientRect();
+                    if (rect.top <= 100) {
+                        current = h;
+                    }
+                }
+                if (current && tocCurrent) {
+                    tocCurrent.textContent = current.textContent;
+                    tocList.querySelectorAll("a").forEach((a) => {
+                        a.parentElement.classList.toggle("active", a.getAttribute("href") === `#${current.id}`);
+                    });
+                }
+            }
+
+            window.addEventListener("scroll", updateProgress);
+            updateProgress();
+        </script>
+    </body>
+</html>
